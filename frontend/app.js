@@ -71,6 +71,12 @@ const DOM = {
     formAddComment:         document.getElementById('form-add-comment'),
     commentAuthor:          document.getElementById('comment-author'),
     commentText:            document.getElementById('comment-text'),
+    
+    // Attachments
+    detailAttachmentsList:  document.getElementById('detail-attachments-list'),
+    inputAttachment:        document.getElementById('input-attachment'),
+    btnAddAttachment:       document.getElementById('btn-add-attachment'),
+    attachmentUploadStatus: document.getElementById('attachment-upload-status'),
 
     // Sidebar
     toggleSettings:         document.getElementById('toggle-settings'),
@@ -248,6 +254,42 @@ function initEventListeners() {
         const m = state.selectedMeeting;
         closeDetailsModal();
         openCreateModal(m);
+    });
+
+    // Attachments
+    DOM.btnAddAttachment.addEventListener('click', () => {
+        DOM.inputAttachment.click();
+    });
+
+    DOM.inputAttachment.addEventListener('change', async (e) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+        const file = e.target.files[0];
+        if (!state.selectedMeeting) return;
+        
+        DOM.attachmentUploadStatus.textContent = 'Загрузка...';
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        try {
+            const base = state.apiUrl || (window.location.hostname.includes('github.io') || window.location.protocol.startsWith('file') ? 'http://192.168.1.2:8507' : window.location.origin);
+            const res = await fetch(`${base}/api/meetings/${state.selectedMeeting.id}/attachments`, {
+                method: 'POST',
+                body: formData
+            });
+            if (res.ok) {
+                const newAtt = await res.json();
+                state.selectedMeeting.attachments = state.selectedMeeting.attachments || [];
+                state.selectedMeeting.attachments.push(newAtt);
+                renderAttachmentsList(state.selectedMeeting.attachments);
+                DOM.attachmentUploadStatus.textContent = '';
+                showToast("Загружено", "Файл прикреплен", "success");
+            } else {
+                DOM.attachmentUploadStatus.textContent = 'Ошибка загрузки';
+            }
+        } catch(err) {
+            DOM.attachmentUploadStatus.textContent = 'Ошибка сети';
+        }
+        e.target.value = '';
     });
 
     // Details modal: delete
@@ -921,10 +963,34 @@ async function openDetailsModal(meeting) {
     DOM.detailResult.className = `goal-result-text ${meeting.result ? '' : 'empty'}`;
     if (!meeting.result) DOM.detailResult.textContent = 'Результат ещё не заполнен';
 
+    // Attachments
+    renderAttachmentsList(meeting.attachments || []);
+    DOM.attachmentUploadStatus.textContent = '';
+
     DOM.commentsList.innerHTML = '<div class="no-comments">Загрузка...</div>';
     DOM.modalDetails.classList.remove('id-hidden');
 
     await loadComments(meeting.id);
+}
+
+function renderAttachmentsList(attachments) {
+    DOM.detailAttachmentsList.innerHTML = '';
+    if (!attachments || attachments.length === 0) {
+        DOM.detailAttachmentsList.innerHTML = '<li style="color:var(--text-muted);"><i class="fa-solid fa-ban" style="font-size:10px;"></i> Нет вложений</li>';
+        return;
+    }
+    const base = state.apiUrl || (window.location.hostname.includes('github.io') || window.location.protocol.startsWith('file') ? 'http://192.168.1.2:8507' : window.location.origin);
+    
+    attachments.forEach(att => {
+        const li = document.createElement('li');
+        let icon = 'fa-file';
+        if(att.filename.endsWith('.pdf')) icon = 'fa-file-pdf';
+        if(att.filename.endsWith('.doc') || att.filename.endsWith('.docx')) icon = 'fa-file-word';
+        if(att.filename.endsWith('.txt') || att.filename.endsWith('.md')) icon = 'fa-file-lines';
+        
+        li.innerHTML = `<i class="fa-regular ${icon}"></i> <a href="${base}${att.file_path}" target="_blank" rel="noopener noreferrer">${escapeHtml(att.filename)}</a>`;
+        DOM.detailAttachmentsList.appendChild(li);
+    });
 }
 
 // ============================================================
@@ -1152,7 +1218,26 @@ function renderUsersList() {
         const div = document.createElement('div');
         div.className = 'event-pill priority-normal';
         div.style.cssText = 'padding: 4px 8px; cursor: pointer; font-size: 11px; display: flex; align-items: center; justify-content: space-between;';
-        div.innerHTML = `<span><i class="fa-regular fa-user" style="margin-right:4px;"></i> ${escapeHtml(u.name)}</span>`;
+        div.innerHTML = `<span><i class="fa-regular fa-user" style="margin-right:4px;"></i> ${escapeHtml(u.name)}</span>
+                         <button class="btn-delete-user" title="Удалить пользователя"><i class="fa-solid fa-xmark"></i></button>`;
+        
+        const delBtn = div.querySelector('.btn-delete-user');
+        delBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (confirm(`Удалить пользователя ${u.name}?`)) {
+                try {
+                    const res = await apiFetch(`/api/users/${u.id}`, { method: 'DELETE' });
+                    if (res.ok) {
+                        fetchAndRenderUsers();
+                    } else {
+                        alert('Ошибка при удалении пользователя');
+                    }
+                } catch(err) {
+                    console.error(err);
+                }
+            }
+        });
+
         div.addEventListener('click', () => {
             DOM.participantFilter.value = u.name;
             state.filterParticipant = u.name.toLowerCase();

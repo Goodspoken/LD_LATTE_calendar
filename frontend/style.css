@@ -1606,3 +1606,43 @@ body[data-theme="ozon"] {
 .suggestion-item:hover {
     background: var(--bg-card-hover);
 }
+
+/* Attachments List */
+.attachments-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.attachments-list li {
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.attachments-list a {
+    color: var(--primary);
+    text-decoration: none;
+    word-break: break-all;
+}
+.attachments-list a:hover {
+    text-decoration: underline;
+}
+
+/* User Delete Button */
+.btn-delete-user {
+    background: transparent;
+    border: none;
+    color: var(--danger);
+    cursor: pointer;
+    opacity: 0.6;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+.btn-delete-user:hover {
+    opacity: 1;
+    background: rgba(255, 23, 68, 0.1);
+}

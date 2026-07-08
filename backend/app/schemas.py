@@ -61,6 +61,14 @@ class UserResponse(BaseModel):
     name: str
 
 
+class AttachmentOut(BaseModel):
+    id: int
+    meeting_id: int
+    filename: str
+    file_path: str
+    uploaded_at: str
+
+
 class MeetingOut(BaseModel):
     id: int
     title: str
@@ -71,6 +79,7 @@ class MeetingOut(BaseModel):
     start_time: str
     end_time: str
     participants: List[str]
+    attachments: List[AttachmentOut] = []
 
 
 class CommentCreate(BaseModel):

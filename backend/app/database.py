@@ -66,6 +66,17 @@ def init_db():
     )
     """)
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS attachments (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        meeting_id INTEGER NOT NULL,
+        filename   TEXT NOT NULL,
+        file_path  TEXT NOT NULL,
+        uploaded_at TEXT NOT NULL,
+        FOREIGN KEY (meeting_id) REFERENCES meetings (id) ON DELETE CASCADE
+    )
+    """)
+
     _migrate(cursor)  # Safe upgrade for existing databases
     
     # Seed users from existing meetings if users table is empty
@@ -97,6 +108,7 @@ def _row_to_meeting(row) -> Dict[str, Any]:
     m.setdefault("result", None)
     if not m.get("priority"):
         m["priority"] = "normal"
+    m["attachments"] = get_attachments_for_meeting(m["id"])
     return m
 
 
@@ -261,3 +273,38 @@ def add_user(name: str) -> Optional[Dict[str, Any]]:
         return None  # User already exists
     finally:
         conn.close()
+
+def delete_user(user_id: int) -> bool:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    deleted = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return deleted
+
+def add_attachment(meeting_id: int, filename: str, file_path: str, uploaded_at: str) -> Dict[str, Any]:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO attachments (meeting_id, filename, file_path, uploaded_at) VALUES (?, ?, ?, ?)",
+        (meeting_id, filename, file_path, uploaded_at)
+    )
+    att_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return {
+        "id": att_id,
+        "meeting_id": meeting_id,
+        "filename": filename,
+        "file_path": file_path,
+        "uploaded_at": uploaded_at
+    }
+
+def get_attachments_for_meeting(meeting_id: int) -> List[Dict[str, Any]]:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM attachments WHERE meeting_id = ? ORDER BY uploaded_at ASC", (meeting_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]

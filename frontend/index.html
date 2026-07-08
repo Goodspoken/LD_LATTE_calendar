@@ -322,6 +322,18 @@
                     <div class="goal-result-text" id="detail-result"></div>
                 </div>
 
+                <div style="padding:8px 0;border-bottom:1px solid var(--border-color);">
+                    <span style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);display:block;margin-bottom:6px;">Вложения</span>
+                    <ul class="attachments-list" id="detail-attachments-list"></ul>
+                    <div style="margin-top:8px;">
+                        <input type="file" id="input-attachment" accept=".md,.txt,.doc,.docx,.pdf" style="display:none;" />
+                        <button class="btn btn-secondary btn-sm" id="btn-add-attachment">
+                            <i class="fa-solid fa-paperclip"></i> Прикрепить файл
+                        </button>
+                        <span id="attachment-upload-status" style="font-size:11px; margin-left:8px; color:var(--text-muted);"></span>
+                    </div>
+                </div>
+
                 <div style="display:flex;gap:8px;flex-wrap:wrap;padding-top:12px;">
                     <button class="btn btn-secondary btn-sm" id="btn-edit-meeting">
                         <i class="fa-solid fa-pen-to-square"></i> Изменить

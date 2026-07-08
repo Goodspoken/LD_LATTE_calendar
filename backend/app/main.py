@@ -1,9 +1,13 @@
-from fastapi import FastAPI, HTTPException, status, Query
+from fastapi import FastAPI, HTTPException, status, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import List, Optional
 import json
+import os
+import shutil
+import uuid
 
 from app import database, schemas
 
@@ -24,6 +28,10 @@ app = FastAPI(
     version="1.1.0",
     lifespan=lifespan
 )
+
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 # FIX: allow_credentials=True is incompatible with allow_origins=["*"].
 # Browsers reject credentialed requests to wildcard origins. Set to False.
@@ -110,6 +118,19 @@ def create_user(user: schemas.UserCreate):
         if not new_user:
             raise HTTPException(status_code=400, detail="User already exists")
         return new_user
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database error: {str(e)}"
+        )
+
+@app.delete("/api/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(user_id: int):
+    try:
+        if not database.delete_user(user_id):
+            raise HTTPException(status_code=404, detail="User not found")
     except HTTPException:
         raise
     except Exception as e:
@@ -345,6 +366,34 @@ def post_comment(meeting_id: int, comment: schemas.CommentCreate):
             detail=f"Failed to save comment: {str(e)}"
         )
 
+
+@app.post("/api/meetings/{meeting_id}/attachments", response_model=schemas.AttachmentOut, status_code=status.HTTP_201_CREATED)
+async def upload_attachment(meeting_id: int, file: UploadFile = File(...)):
+    if not database.get_meeting_by_id(meeting_id):
+        raise HTTPException(status_code=404, detail="Meeting not found")
+        
+    allowed_extensions = {".md", ".txt", ".doc", ".docx", ".pdf"}
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in allowed_extensions:
+        raise HTTPException(status_code=400, detail=f"File extension {ext} not allowed. Allowed: {', '.join(allowed_extensions)}")
+        
+    safe_filename = f"{uuid.uuid4().hex}{ext}"
+    file_path = os.path.join(UPLOAD_DIR, safe_filename)
+    
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not save file: {e}")
+        
+    try:
+        now_str = datetime.utcnow().isoformat() + "Z"
+        # We serve from /uploads/
+        url_path = f"/uploads/{safe_filename}"
+        new_att = database.add_attachment(meeting_id, file.filename, url_path, now_str)
+        return new_att
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
 # Serve frontend static files directly from the backend
 from fastapi.staticfiles import StaticFiles
