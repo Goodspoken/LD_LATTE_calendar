@@ -9,8 +9,5 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - db-data:/app
+      - ./backend:/app
     restart: always
-
-volumes:
-  db-data:

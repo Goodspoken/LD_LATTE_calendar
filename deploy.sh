@@ -60,7 +60,17 @@ rsync -avz -e "ssh $SSH_PORT_OPT" --exclude 'venv' --exclude '__pycache__' --exc
 echo "Запуск сервиса на $TARGET..."
 if [ "$TARGET" = "Serverbook" ]; then
     # Подменяем порт 8000:8000 на 8507:8000 для Serverbook
-    ssh $SSH_PORT_OPT $SSH_HOST "cd $REMOTE_DIR && sed -i 's/8000:8000/8507:8000/g' docker-compose.yml && docker compose up -d --build"
+    ssh $SSH_PORT_OPT $SSH_HOST << EOF
+    cd $REMOTE_DIR
+    echo "Бэкап базы данных из контейнера..."
+    docker cp calendar_backend:/app/meetings.db ./backend/meetings.db || true
+    echo "Сборка и запуск бэкенда через Docker Compose..."
+    docker compose down
+    # Удаляем старый named volume, если он существует, чтобы очистить кэш
+    docker volume rm calendar_db-data 2>/dev/null || true
+    sed -i 's/8000:8000/8507:8000/g' docker-compose.yml
+    docker compose up -d --build
+EOF
 else
     ssh $SSH_PORT_OPT $SSH_HOST "cd $REMOTE_DIR && docker compose up -d --build"
 fi

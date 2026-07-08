@@ -89,7 +89,37 @@ def _check_conflicts(
 
 
 # ──────────────────────────────────────────────────────────────
-# Endpoints
+# Users Endpoints
+# ──────────────────────────────────────────────────────────────
+
+@app.get("/api/users", response_model=List[schemas.UserResponse])
+def get_users():
+    try:
+        return database.get_all_users()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database error: {str(e)}"
+        )
+
+
+@app.post("/api/users", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED)
+def create_user(user: schemas.UserCreate):
+    try:
+        new_user = database.add_user(user.name)
+        if not new_user:
+            raise HTTPException(status_code=400, detail="User already exists")
+        return new_user
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database error: {str(e)}"
+        )
+
+# ──────────────────────────────────────────────────────────────
+# Meetings Endpoints
 # ──────────────────────────────────────────────────────────────
 
 @app.get("/api/meetings", response_model=List[schemas.MeetingOut])
@@ -108,35 +138,92 @@ def get_meetings(
         )
 
 
-@app.post("/api/meetings", response_model=schemas.MeetingOut, status_code=status.HTTP_201_CREATED)
+import calendar
+
+def _add_months(dt, months):
+    new_month = dt.month - 1 + months
+    year = dt.year + new_month // 12
+    month = new_month % 12 + 1
+    day = dt.day
+    while True:
+        try:
+            return dt.replace(year=year, month=month, day=day)
+        except ValueError:
+            day -= 1
+
+@app.post("/api/meetings", status_code=status.HTTP_201_CREATED)
 def schedule_meeting(meeting: schemas.MeetingCreate):
+    from datetime import datetime, timedelta
+
     if meeting.start_time >= meeting.end_time:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Start time must be strictly before end time"
         )
+    
+    # Auto-add any new users
+    for p in meeting.participants:
+        database.add_user(p)
 
-    conflicts = _check_conflicts(meeting.start_time, meeting.end_time, meeting.participants)
-    if conflicts:
+    instances = []
+    base_start = datetime.fromisoformat(meeting.start_time.replace('Z', '+00:00'))
+    base_end = datetime.fromisoformat(meeting.end_time.replace('Z', '+00:00'))
+    
+    if meeting.recurrence == "none" or not meeting.recurrence_end_date:
+        instances.append((base_start, base_end))
+    else:
+        end_limit = datetime.fromisoformat(meeting.recurrence_end_date)
+        # Limit to 50 occurrences max to avoid abuse/bugs
+        curr_start = base_start
+        curr_end = base_end
+        count = 0
+        while curr_start.date() <= end_limit.date() and count < 50:
+            instances.append((curr_start, curr_end))
+            count += 1
+            if meeting.recurrence == "daily":
+                curr_start += timedelta(days=1)
+                curr_end += timedelta(days=1)
+            elif meeting.recurrence == "weekly":
+                curr_start += timedelta(weeks=1)
+                curr_end += timedelta(weeks=1)
+            elif meeting.recurrence == "monthly":
+                curr_start = _add_months(curr_start, 1)
+                curr_end = _add_months(curr_end, 1)
+            else:
+                break
+
+    all_conflicts = []
+    for s_dt, e_dt in instances:
+        c = _check_conflicts(s_dt.isoformat(), e_dt.isoformat(), meeting.participants)
+        if c:
+            for conf in c:
+                conf["instance_date"] = s_dt.isoformat()
+            all_conflicts.extend(c)
+    
+    if all_conflicts:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={
-                "message": "Conflict detected: some participants are already booked in other meetings during this time range.",
-                "conflicts": conflicts
+                "message": "Conflict detected for one or more occurrences.",
+                "conflicts": all_conflicts
             }
         )
 
+    results = []
     try:
-        return database.create_meeting(
-            title=meeting.title,
-            description=meeting.description,
-            goal=meeting.goal,
-            result=meeting.result,
-            priority=meeting.priority,
-            start_time=meeting.start_time,
-            end_time=meeting.end_time,
-            participants=meeting.participants
-        )
+        for s_dt, e_dt in instances:
+            res = database.create_meeting(
+                title=meeting.title,
+                description=meeting.description,
+                goal=meeting.goal,
+                result=meeting.result,
+                priority=meeting.priority,
+                start_time=s_dt.isoformat(),
+                end_time=e_dt.isoformat(),
+                participants=meeting.participants
+            )
+            results.append(res)
+        return results if len(results) > 1 else results[0]
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -159,6 +246,9 @@ def update_meeting(meeting_id: int, meeting: schemas.MeetingUpdate):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Start time must be strictly before end time"
         )
+        
+    for p in meeting.participants:
+        database.add_user(p)
 
     conflicts = _check_conflicts(
         meeting.start_time, meeting.end_time, meeting.participants,

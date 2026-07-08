@@ -38,11 +38,27 @@ class _MeetingBase(BaseModel):
 
 
 class MeetingCreate(_MeetingBase):
-    pass
+    recurrence: Optional[str] = Field("none", description="none, daily, weekly, monthly")
+    recurrence_end_date: Optional[str] = Field(None, description="ISO Date string (YYYY-MM-DD)")
+
+    @field_validator('recurrence')
+    def validate_recurrence(cls, v):
+        if v and v not in ('none', 'daily', 'weekly', 'monthly'):
+            raise ValueError("Invalid recurrence value")
+        return v or "none"
 
 
 class MeetingUpdate(_MeetingBase):
     pass
+
+
+class UserCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+
+
+class UserResponse(BaseModel):
+    id: int
+    name: str
 
 
 class MeetingOut(BaseModel):

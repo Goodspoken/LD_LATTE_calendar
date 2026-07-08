@@ -59,7 +59,32 @@ def init_db():
     )
     """)
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id   INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT UNIQUE NOT NULL
+    )
+    """)
+
     _migrate(cursor)  # Safe upgrade for existing databases
+    
+    # Seed users from existing meetings if users table is empty
+    cursor.execute("SELECT COUNT(*) FROM users")
+    if cursor.fetchone()[0] == 0:
+        cursor.execute("SELECT participants FROM meetings")
+        rows = cursor.fetchall()
+        unique_users = set()
+        for r in rows:
+            try:
+                parts = json.loads(r["participants"])
+                for p in parts:
+                    unique_users.add(p.strip())
+            except Exception:
+                pass
+        for u in unique_users:
+            if u:
+                cursor.execute("INSERT OR IGNORE INTO users (name) VALUES (?)", (u,))
+
     conn.commit()
     conn.close()
 
@@ -213,3 +238,26 @@ def get_comments_for_meeting(meeting_id: int) -> List[Dict[str, Any]]:
     rows = cursor.fetchall()
     conn.close()
     return [dict(row) for row in rows]
+
+
+def get_all_users() -> List[Dict[str, Any]]:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users ORDER BY name ASC")
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+def add_user(name: str) -> Optional[Dict[str, Any]]:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("INSERT INTO users (name) VALUES (?)", (name.strip(),))
+        user_id = cursor.lastrowid
+        conn.commit()
+        return {"id": user_id, "name": name.strip()}
+    except sqlite3.IntegrityError:
+        return None  # User already exists
+    finally:
+        conn.close()
