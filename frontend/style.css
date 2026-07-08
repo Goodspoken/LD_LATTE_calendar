@@ -1544,3 +1544,65 @@ body[data-theme="ozon"] {
     .priority-option { color: var(--text-secondary); }
 }
 
+
+/* Tags Input Styles */
+.participants-tags-input {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    min-height: 42px;
+    align-items: center;
+}
+.participants-tags-input input {
+    border: none;
+    background: transparent;
+    color: var(--text);
+    outline: none;
+    flex: 1;
+    min-width: 120px;
+    padding: 0;
+}
+.participant-tag {
+    background: var(--primary);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.participant-tag .remove-tag {
+    cursor: pointer;
+    opacity: 0.7;
+}
+.participant-tag .remove-tag:hover {
+    opacity: 1;
+}
+.suggestions-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--surface-light);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    max-height: 150px;
+    overflow-y: auto;
+    z-index: 100;
+    margin-top: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.suggestion-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text);
+}
+.suggestion-item:hover {
+    background: var(--hover);
+}

@@ -2,13 +2,14 @@
 // State
 // ============================================================
 const state = {
-    apiUrl: localStorage.getItem('calendar_api_url') || '',
     currentDate: new Date(),
-    currentView: 'month',       // 'month' | 'compact' | 'week' | 'agenda'
-    theme: localStorage.getItem('calendar_theme') || 'dark',
+    viewMode: 'month', // 'month' | 'week' | 'agenda'
     meetings: [],
-    selectedMeeting: null,
-    editingMeeting: null,
+    users: [],
+    selectedParticipants: [], // Tags
+    theme: localStorage.getItem('calendar_theme') || 'default',
+    apiUrl: localStorage.getItem('calendar_api_url') || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : 'http://192.168.1.2:8507'),
+    editingMeetingId: null,
     filterParticipant: '',
     offlineBannerShown: false
 };
@@ -84,6 +85,21 @@ const DOM = {
     btnClearFilter:         document.getElementById('btn-clear-filter'),
     offlineBannerContainer: document.getElementById('offline-banner-container'),
     sidebarUpcomingList:    document.getElementById('sidebar-upcoming-list'),
+
+    // Users and tags
+    registeredUsersCount:   document.getElementById('registered-users-count'),
+    btnAddUser:             document.getElementById('btn-add-user'),
+    modalAddUser:           document.getElementById('modal-add-user'),
+    btnCloseAddUser:        document.getElementById('btn-close-add-user'),
+    formAddUser:            document.getElementById('form-add-user'),
+    btnCancelAddUser:       document.getElementById('btn-cancel-add-user'),
+    
+    participantsContainer:  document.getElementById('participants-container'),
+    inputParticipantSearch: document.getElementById('input-participant-search'),
+    participantsSuggestions:document.getElementById('participants-suggestions'),
+    inputRecurrence:        document.getElementById('input-recurrence'),
+    groupRecurrenceEnd:     document.getElementById('group-recurrence-end'),
+    inputRecurrenceEnd:     document.getElementById('input-recurrence-end'),
 };
 
 // ============================================================
@@ -93,7 +109,9 @@ document.addEventListener('DOMContentLoaded', () => {
     applyTheme(state.theme);
     DOM.apiUrlInput.value = state.apiUrl;
     initEventListeners();
+    initTagsInput();
     checkApiStatus();
+    fetchUsers();
     render();
     fetchTodayStats();
 });
@@ -140,18 +158,20 @@ function initEventListeners() {
         const dateStr      = DOM.inputDate.value;
         const startTimeStr = DOM.inputStartTime.value;
         const endTimeStr   = DOM.inputEndTime.value;
-        const participantsRaw = document.getElementById('input-participants').value;
         const description  = document.getElementById('input-description').value.trim();
         const goal         = DOM.inputGoal.value.trim();
         const result       = DOM.inputResult.value.trim();
         const priority     = document.querySelector('input[name="input-priority"]:checked')?.value || 'normal';
+        
+        const recurrence = DOM.inputRecurrence ? DOM.inputRecurrence.value : 'none';
+        const recurrence_end_date = DOM.inputRecurrenceEnd ? DOM.inputRecurrenceEnd.value : null;
 
         if (endTimeStr <= startTimeStr) {
             showToast("Ошибка ввода", "Время окончания должно быть позже начала", "error");
             return;
         }
 
-        const participants = participantsRaw.split(',').map(p => p.trim()).filter(p => p.length > 0);
+        const participants = [...state.selectedParticipants];
         if (participants.length === 0) {
             showToast("Ошибка ввода", "Укажите хотя бы одного участника", "error");
             return;
@@ -170,19 +190,26 @@ function initEventListeners() {
             const url    = isEdit ? `/api/meetings/${state.editingMeeting.id}` : '/api/meetings';
             const method = isEdit ? 'PUT' : 'POST';
 
+            const payload = {
+                title,
+                description: description || null,
+                goal: goal || null,
+                result: result || null,
+                priority,
+                start_time,
+                end_time,
+                participants
+            };
+            
+            if (!isEdit && recurrence && recurrence !== 'none') {
+                payload.recurrence = recurrence;
+                payload.recurrence_end_date = recurrence_end_date || null;
+            }
+
             const res = await apiFetch(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    title,
-                    description: description || null,
-                    goal: goal || null,
-                    result: result || null,
-                    priority,
-                    start_time,
-                    end_time,
-                    participants
-                })
+                body: JSON.stringify(payload)
             });
 
             if (res.status === 201 || res.status === 200) {
@@ -1083,4 +1110,174 @@ function renderSidebarUpcomingList() {
         item.addEventListener('click', () => openDetailsModal(meeting));
         DOM.sidebarUpcomingList.appendChild(item);
     });
+}
+
+// ============================================================
+// Users and Tags Input Logic
+// ============================================================
+
+async function fetchUsers() {
+    try {
+        const res = await apiFetch('/api/users');
+        if (res.ok) {
+            state.users = await res.json();
+            DOM.registeredUsersCount.textContent = `Зарегистрировано: ${state.users.length}`;
+        }
+    } catch (e) {
+        console.error('Failed to fetch users', e);
+    }
+}
+
+function initTagsInput() {
+    DOM.inputRecurrence.addEventListener('change', (e) => {
+        if (e.target.value === 'none') {
+            DOM.groupRecurrenceEnd.classList.add('id-hidden');
+            if (DOM.inputRecurrenceEnd) DOM.inputRecurrenceEnd.removeAttribute('required');
+        } else {
+            DOM.groupRecurrenceEnd.classList.remove('id-hidden');
+            if (DOM.inputRecurrenceEnd) DOM.inputRecurrenceEnd.setAttribute('required', 'true');
+        }
+    });
+
+    const renderTags = () => {
+        DOM.participantsContainer.querySelectorAll('.participant-tag').forEach(el => el.remove());
+        state.selectedParticipants.forEach((p, idx) => {
+            const tag = document.createElement('div');
+            tag.className = 'participant-tag';
+            tag.innerHTML = `<span>${escapeHtml(p)}</span><span class="remove-tag" data-idx="${idx}"><i class="fa-solid fa-xmark"></i></span>`;
+            DOM.participantsContainer.insertBefore(tag, DOM.inputParticipantSearch);
+        });
+        document.getElementById('input-participants').value = state.selectedParticipants.join(',');
+    };
+
+    DOM.participantsContainer.addEventListener('click', (e) => {
+        const removeBtn = e.target.closest('.remove-tag');
+        if (removeBtn) {
+            const idx = parseInt(removeBtn.dataset.idx, 10);
+            state.selectedParticipants.splice(idx, 1);
+            renderTags();
+            DOM.inputParticipantSearch.focus();
+        } else {
+            DOM.inputParticipantSearch.focus();
+        }
+    });
+
+    const hideSuggestions = () => {
+        DOM.participantsSuggestions.classList.add('id-hidden');
+    };
+
+    const showSuggestions = (query) => {
+        const q = query.toLowerCase().trim();
+        const matches = state.users.filter(u => u.name.toLowerCase().includes(q) && !state.selectedParticipants.includes(u.name));
+        
+        DOM.participantsSuggestions.innerHTML = '';
+        if (matches.length === 0) {
+            if (q.length > 0) {
+                const addDiv = document.createElement('div');
+                addDiv.className = 'suggestion-item';
+                addDiv.textContent = `Добавить "${q}"`;
+                addDiv.addEventListener('mousedown', () => {
+                    addTag(q);
+                });
+                DOM.participantsSuggestions.appendChild(addDiv);
+                DOM.participantsSuggestions.classList.remove('id-hidden');
+            } else {
+                hideSuggestions();
+            }
+            return;
+        }
+
+        matches.forEach(u => {
+            const div = document.createElement('div');
+            div.className = 'suggestion-item';
+            div.textContent = u.name;
+            div.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                addTag(u.name);
+            });
+            DOM.participantsSuggestions.appendChild(div);
+        });
+        DOM.participantsSuggestions.classList.remove('id-hidden');
+    };
+
+    const addTag = (name) => {
+        const trimmed = name.trim();
+        if (trimmed && !state.selectedParticipants.includes(trimmed)) {
+            state.selectedParticipants.push(trimmed);
+            renderTags();
+        }
+        DOM.inputParticipantSearch.value = '';
+        hideSuggestions();
+    };
+
+    DOM.inputParticipantSearch.addEventListener('input', (e) => showSuggestions(e.target.value));
+    DOM.inputParticipantSearch.addEventListener('focus', (e) => showSuggestions(e.target.value));
+    DOM.inputParticipantSearch.addEventListener('blur', () => setTimeout(hideSuggestions, 100));
+
+    DOM.inputParticipantSearch.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addTag(e.target.value);
+        } else if (e.key === 'Backspace' && e.target.value === '' && state.selectedParticipants.length > 0) {
+            state.selectedParticipants.pop();
+            renderTags();
+        }
+    });
+
+    // Modal Add User
+    DOM.btnAddUser.addEventListener('click', () => {
+        DOM.modalAddUser.classList.remove('id-hidden');
+        document.getElementById('input-new-user-name').focus();
+    });
+
+    DOM.btnCloseAddUser.addEventListener('click', () => DOM.modalAddUser.classList.add('id-hidden'));
+    DOM.btnCancelAddUser.addEventListener('click', () => DOM.modalAddUser.classList.add('id-hidden'));
+
+    DOM.formAddUser.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const nameInput = document.getElementById('input-new-user-name');
+        const name = nameInput.value.trim();
+        if (!name) return;
+
+        try {
+            const btn = DOM.formAddUser.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            const res = await apiFetch('/api/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            });
+            if (res.ok) {
+                showToast("Успех", "Пользователь добавлен", "success");
+                await fetchUsers();
+                DOM.modalAddUser.classList.add('id-hidden');
+                nameInput.value = '';
+            } else {
+                const err = await res.json();
+                showToast("Ошибка", err.detail || "Не удалось добавить", "error");
+            }
+        } catch (err) {
+            showToast("Ошибка", "Сетевая ошибка", "error");
+        } finally {
+            DOM.formAddUser.querySelector('button[type="submit"]').disabled = false;
+        }
+    });
+
+    // Override openCreateModal to properly initialize tags
+    const _oldOpenCreateModal = window.openCreateModal;
+    window.openCreateModal = (meeting = null, forcedDateStr = null) => {
+        if (typeof _oldOpenCreateModal === 'function') _oldOpenCreateModal(meeting, forcedDateStr);
+        state.selectedParticipants = meeting && meeting.participants ? [...meeting.participants] : [];
+        if (meeting) {
+            DOM.inputRecurrence.value = 'none';
+            DOM.inputRecurrence.disabled = true;
+            DOM.groupRecurrenceEnd.classList.add('id-hidden');
+        } else {
+            DOM.inputRecurrence.value = 'none';
+            DOM.inputRecurrence.disabled = false;
+            DOM.groupRecurrenceEnd.classList.add('id-hidden');
+            if (DOM.inputRecurrenceEnd) DOM.inputRecurrenceEnd.value = '';
+        }
+        renderTags();
+    };
 }

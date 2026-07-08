@@ -62,8 +62,13 @@
             </div>
         </div>
 
-        <!-- Participant Filter -->
+        <!-- Users & Filter -->
         <div class="stats-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span style="font-size: 11px; color: var(--text-muted);" id="registered-users-count">Зарегистрировано: 0</span>
+                <button class="btn btn-primary btn-sm" id="btn-add-user" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-user-plus"></i> Добавить</button>
+            </div>
+            
             <h3><i class="fa-solid fa-magnifying-glass"></i> Фильтр по участнику</h3>
             <input type="text" id="participant-filter" placeholder="Имя участника..." style="width:100%;box-sizing:border-box;margin-bottom:6px;">
             <button class="btn btn-secondary btn-sm" id="btn-clear-filter" style="width:100%;">Сбросить фильтр</button>
@@ -198,10 +203,32 @@
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label for="input-participants">Участники (через запятую) <span class="required">*</span></label>
-                    <input type="text" id="input-participants" required placeholder="Иван, Мария, Анна">
+                <div class="form-group" style="position: relative;">
+                    <label>Участники <span class="required">*</span></label>
+                    <div id="participants-container" class="participants-tags-input">
+                        <!-- Tags will be appended here -->
+                        <input type="text" id="input-participant-search" placeholder="Начните вводить имя..." autocomplete="off">
+                    </div>
+                    <div id="participants-suggestions" class="suggestions-list id-hidden"></div>
                     <small class="form-help">Система не даст забронировать время, если кто-то уже занят.</small>
+                    <!-- Hidden input to store actual participants array as JSON or comma separated string for validation -->
+                    <input type="hidden" id="input-participants" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="input-recurrence">Повторение</label>
+                        <select id="input-recurrence">
+                            <option value="none">Без повторения</option>
+                            <option value="daily">Каждый день</option>
+                            <option value="weekly">Раз в неделю</option>
+                            <option value="monthly">Раз в месяц</option>
+                        </select>
+                    </div>
+                    <div class="form-group id-hidden" id="group-recurrence-end">
+                        <label for="input-recurrence-end">Повторять до</label>
+                        <input type="date" id="input-recurrence-end">
+                    </div>
                 </div>
 
                 <!-- Priority selector -->
@@ -316,6 +343,26 @@
             </div>
 
         </div>
+    </div>
+</div>
+
+<!-- Modal: Add User -->
+<div class="modal id-hidden" id="modal-add-user">
+    <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-user-plus"></i> Добавить пользователя</h3>
+            <button class="btn-close" id="btn-close-add-user"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form id="form-add-user">
+            <div class="form-group">
+                <label for="input-new-user-name">Имя пользователя <span class="required">*</span></label>
+                <input type="text" id="input-new-user-name" required placeholder="Например: Иван Иванов">
+            </div>
+            <div class="form-actions" style="margin-top:20px;">
+                <button type="button" class="btn btn-secondary" id="btn-cancel-add-user">Отмена</button>
+                <button type="submit" class="btn btn-primary">Добавить</button>
+            </div>
+        </form>
     </div>
 </div>
 
