@@ -1116,15 +1116,58 @@ function renderSidebarUpcomingList() {
 // Users and Tags Input Logic
 // ============================================================
 
+let usersListExpanded = false;
+
 async function fetchUsers() {
     try {
         const res = await apiFetch('/api/users');
         if (res.ok) {
             state.users = await res.json();
             DOM.registeredUsersCount.textContent = `Зарегистрировано: ${state.users.length}`;
+            renderUsersList();
         }
     } catch (e) {
         console.error('Failed to fetch users', e);
+    }
+}
+
+function renderUsersList() {
+    const container = document.getElementById('users-list-widget');
+    const toggleBtn = document.getElementById('btn-toggle-users');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (state.users.length === 0) {
+        toggleBtn.classList.add('id-hidden');
+        return;
+    }
+
+    const limit = 5;
+    const toShow = usersListExpanded ? state.users : state.users.slice(0, limit);
+    
+    toShow.forEach(u => {
+        const div = document.createElement('div');
+        div.className = 'event-pill priority-normal';
+        div.style.cssText = 'padding: 4px 8px; cursor: pointer; font-size: 11px; display: flex; align-items: center; justify-content: space-between;';
+        div.innerHTML = `<span><i class="fa-regular fa-user" style="margin-right:4px;"></i> ${escapeHtml(u.name)}</span>`;
+        div.addEventListener('click', () => {
+            DOM.participantFilter.value = u.name;
+            state.filterParticipant = u.name.toLowerCase();
+            renderCurrentView();
+        });
+        container.appendChild(div);
+    });
+
+    if (state.users.length > limit) {
+        toggleBtn.classList.remove('id-hidden');
+        toggleBtn.textContent = usersListExpanded ? 'Скрыть' : `Показать всех (${state.users.length})`;
+        toggleBtn.onclick = () => {
+            usersListExpanded = !usersListExpanded;
+            renderUsersList();
+        };
+    } else {
+        toggleBtn.classList.add('id-hidden');
     }
 }
 
