@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Встречи Компании — ИИ-Календарь</title>
+    <title>LD Latte — Календарь встреч</title>
+    <meta name="description" content="Корпоративный календарь встреч LD Latte. Планируйте встречи и избегайте конфликтов расписания.">
     <!-- Google Fonts for premium typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -59,6 +60,12 @@
                 </div>
             </div>
 
+            <!-- Participant Filter -->
+            <div class="stats-card">
+                <h3><i class="fa-solid fa-magnifying-glass"></i> Фильтр по участнику</h3>
+                <input type="text" id="participant-filter" placeholder="Имя участника..." style="width:100%;box-sizing:border-box;margin-bottom:6px;">
+                <button class="btn btn-secondary btn-sm" id="btn-clear-filter" style="width:100%;">Сбросить фильтр</button>
+            </div>
 
             <div class="stats-card">
                 <h3>Аналитика дня</h3>
@@ -67,7 +74,7 @@
                     <span class="stat-value" id="stat-meetings-today">0</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">Всего участников</span>
+                    <span class="stat-label">Участников сегодня</span>
                     <span class="stat-value" id="stat-total-people">0</span>
                 </div>
                 <div class="stat-item">
@@ -96,7 +103,7 @@
             <header class="calendar-header">
                 <div class="date-navigation">
                     <button class="btn btn-icon" id="btn-prev"><i class="fa-solid fa-chevron-left"></i></button>
-                    <h2 class="current-date-label" id="current-date-label">Июль 2026</h2>
+                    <h2 class="current-date-label" id="current-date-label">Загрузка...</h2>
                     <button class="btn btn-icon" id="btn-next"><i class="fa-solid fa-chevron-right"></i></button>
                     <button class="btn btn-secondary" id="btn-today">Сегодня</button>
                 </div>
@@ -115,7 +122,7 @@
                     <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div>Вс</div>
                 </div>
                 <div class="days-grid" id="month-days-grid">
-                    <!-- Javascript will render days here -->
+                    <!-- JavaScript will render days here -->
                 </div>
             </div>
 
@@ -131,24 +138,24 @@
                     <div class="weekday-header">Вс <span class="date-num">-</span></div>
                 </div>
                 <div class="week-columns" id="week-columns-container">
-                    <!-- Javascript will render week columns here -->
+                    <!-- JavaScript will render week columns here -->
                 </div>
             </div>
 
             <!-- Agenda View Container -->
             <div class="calendar-view id-hidden" id="agenda-view">
                 <div class="agenda-container" id="agenda-list">
-                    <!-- Javascript will list upcoming meetings here -->
+                    <!-- JavaScript will list upcoming meetings here -->
                 </div>
             </div>
         </main>
     </div>
 
-    <!-- Modal: Create Meeting -->
+    <!-- Modal: Create / Edit Meeting -->
     <div class="modal-overlay id-hidden" id="modal-create">
         <div class="modal-card">
             <div class="modal-header">
-                <h2><i class="fa-solid fa-circle-plus"></i> Запланировать встречу</h2>
+                <h2 id="modal-create-title"><i class="fa-solid fa-circle-plus"></i> Запланировать встречу</h2>
                 <button class="modal-close" id="btn-close-create"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <form id="form-create-meeting">
@@ -206,7 +213,7 @@
                 <div class="details-left">
                     <div class="info-block">
                         <span class="info-label"><i class="fa-regular fa-clock"></i> Время проведения</span>
-                        <div class="info-value" id="detail-time">09 июля 2026, 10:00 - 11:00</div>
+                        <div class="info-value" id="detail-time">—</div>
                     </div>
 
                     <div class="info-block">
@@ -221,7 +228,10 @@
                         <div class="detail-description-box" id="detail-description">Описание отсутствует</div>
                     </div>
 
-                    <div class="danger-zone">
+                    <div class="danger-zone" style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button class="btn btn-secondary btn-sm" id="btn-edit-meeting">
+                            <i class="fa-solid fa-pen-to-square"></i> Изменить
+                        </button>
                         <button class="btn btn-danger btn-sm" id="btn-delete-meeting">
                             <i class="fa-solid fa-trash-can"></i> Отменить встречу
                         </button>
@@ -233,7 +243,6 @@
                     <h3><i class="fa-regular fa-comments"></i> Обсуждение встречи</h3>
                     
                     <div class="comments-list" id="comments-list">
-                        <!-- Comments will be rendered here dynamically -->
                         <div class="no-comments">Комментариев пока нет. Напишите первый!</div>
                     </div>
 
@@ -251,5 +260,8 @@
 
     <!-- Toast Notifications Container -->
     <div class="toast-container" id="toast-container"></div>
+
+    <!-- FIX: Script tag was missing entirely — JS was never loaded -->
+    <script src="app.js"></script>
 </body>
 </html>

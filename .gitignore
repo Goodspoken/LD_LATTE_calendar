@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.env
+.env.*
+
+# Database — never commit runtime data files
+*.db
+*.db-shm
+*.db-wal
+
+# SSH keys — NEVER commit private keys
+ssh_keys/
+*.pem
+id_ed25519
+id_rsa
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+*.swp
