@@ -363,7 +363,16 @@ function openCreateModal(meetingToEdit = null, prefilledDate = null) {
 // API Helper
 // ============================================================
 async function apiFetch(path, options = {}) {
-    const base = state.apiUrl || 'http://localhost:8000';
+    let base = state.apiUrl;
+    if (!base) {
+        if (window.location.hostname.includes('github.io')) {
+            base = 'http://localhost:8000';
+        } else if (window.location.protocol.startsWith('file')) {
+            base = 'http://localhost:8000';
+        } else {
+            base = window.location.origin;
+        }
+    }
     return fetch(`${base}${path}`, options);
 }
 
@@ -393,6 +402,14 @@ function showOfflineBanner() {
     if (state.offlineBannerShown) return;
     state.offlineBannerShown = true;
 
+    let extraWarning = "";
+    if (window.location.protocol === "https:" && (!state.apiUrl || state.apiUrl.startsWith("http:"))) {
+        extraWarning = `<div style="font-size: 11px; margin-top: 4px; color: rgba(255, 145, 0, 0.85);">
+            ⚠️ Вы открыли сайт через безопасный HTTPS (GitHub Pages). Браузеры блокируют HTTP-запросы к localhost или незащищенным IP-серверам (Mixed Content). 
+            Рекомендуется запустить проект локально (открыв файл <code>frontend/index.html</code> напрямую) или настроить HTTPS/SSL для вашего бэкенд-сервера.
+        </div>`;
+    }
+
     const banner = document.createElement('div');
     banner.id = 'offline-banner';
     banner.className = 'offline-banner';
@@ -401,7 +418,8 @@ function showOfflineBanner() {
             <i class="fa-solid fa-plug-circle-xmark"></i>
             <div>
                 <strong>Бэкенд недоступен.</strong>
-                <span>Введите URL вашего сервера в разделе <strong>Настройки API</strong> в нижней части боковой панели.</span>
+                <span>Введите URL бэкенда в разделе <strong>Настройки API</strong> внизу боковой панели.</span>
+                ${extraWarning}
             </div>
         </div>
         <button class="offline-banner-close" onclick="hideOfflineBanner()"><i class="fa-solid fa-xmark"></i></button>

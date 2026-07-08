@@ -254,3 +254,13 @@ def post_comment(meeting_id: int, comment: schemas.CommentCreate):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to save comment: {str(e)}"
         )
+
+
+# Serve frontend static files directly from the backend
+from fastapi.staticfiles import StaticFiles
+import os
+
+frontend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend"))
+if os.path.exists(frontend_path):
+    app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
+
