@@ -1551,8 +1551,8 @@ body[data-theme="ozon"] {
     flex-wrap: wrap;
     gap: 6px;
     padding: 8px 12px;
-    background: var(--surface);
-    border: 1px solid var(--border);
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     min-height: 42px;
     align-items: center;
@@ -1560,7 +1560,7 @@ body[data-theme="ozon"] {
 .participants-tags-input input {
     border: none;
     background: transparent;
-    color: var(--text);
+    color: var(--text-primary);
     outline: none;
     flex: 1;
     min-width: 120px;
@@ -1588,21 +1588,21 @@ body[data-theme="ozon"] {
     top: 100%;
     left: 0;
     right: 0;
-    background: var(--surface-light);
-    border: 1px solid var(--border);
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     max-height: 150px;
     overflow-y: auto;
-    z-index: 100;
+    z-index: 9999;
     margin-top: 4px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
 .suggestion-item {
     padding: 8px 12px;
     cursor: pointer;
     font-size: 13px;
-    color: var(--text);
+    color: var(--text-primary);
 }
 .suggestion-item:hover {
-    background: var(--hover);
+    background: var(--bg-card-hover);
 }

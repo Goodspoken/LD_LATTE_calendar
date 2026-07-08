@@ -319,6 +319,7 @@ function initEventListeners() {
         DOM.participantFilter.addEventListener('input', () => {
             state.filterParticipant = DOM.participantFilter.value.trim().toLowerCase();
             renderCurrentView();
+            renderSidebarUpcomingList();
         });
     }
     if (DOM.btnClearFilter) {
@@ -326,6 +327,7 @@ function initEventListeners() {
             state.filterParticipant = '';
             if (DOM.participantFilter) DOM.participantFilter.value = '';
             renderCurrentView();
+            renderSidebarUpcomingList();
         });
     }
 }
@@ -1155,6 +1157,7 @@ function renderUsersList() {
             DOM.participantFilter.value = u.name;
             state.filterParticipant = u.name.toLowerCase();
             renderCurrentView();
+            renderSidebarUpcomingList();
         });
         container.appendChild(div);
     });
