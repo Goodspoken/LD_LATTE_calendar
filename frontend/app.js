@@ -366,9 +366,9 @@ async function apiFetch(path, options = {}) {
     let base = state.apiUrl;
     if (!base) {
         if (window.location.hostname.includes('github.io')) {
-            base = 'http://localhost:8000';
+            base = 'http://192.168.1.2:8507';
         } else if (window.location.protocol.startsWith('file')) {
-            base = 'http://localhost:8000';
+            base = 'http://192.168.1.2:8507';
         } else {
             base = window.location.origin;
         }
