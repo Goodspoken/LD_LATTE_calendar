@@ -4,9 +4,11 @@ from datetime import datetime
 
 
 class _MeetingBase(BaseModel):
-    """Shared base with validation for both create and update operations."""
     title: str = Field(..., min_length=1, max_length=100)
-    description: Optional[str] = Field(None, max_length=1000)
+    description: Optional[str] = Field(None, max_length=2000)
+    goal: Optional[str] = Field(None, max_length=1000, description="Цель встречи")
+    result: Optional[str] = Field(None, max_length=1000, description="Результат встречи")
+    priority: str = Field("normal", description="Приоритет: 'normal' или 'important'")
     start_time: str
     end_time: str
     participants: List[str]
@@ -14,20 +16,25 @@ class _MeetingBase(BaseModel):
     @field_validator('start_time', 'end_time')
     def validate_datetime(cls, v):
         try:
-            cleaned = v.replace('Z', '+00:00')
-            datetime.fromisoformat(cleaned)
+            datetime.fromisoformat(v.replace('Z', '+00:00'))
             return v
         except ValueError:
             raise ValueError("Time must be in valid ISO 8601 format (YYYY-MM-DDTHH:MM:SS)")
 
     @field_validator('participants')
     def validate_participants(cls, v):
-        if not v or len(v) == 0:
-            raise ValueError("At least one participant must be specified")
-        v_cleaned = [p.strip() for p in v if p.strip()]
-        if not v_cleaned:
-            raise ValueError("Participants list cannot consist only of empty names")
-        return v_cleaned
+        if not v:
+            raise ValueError("At least one participant required")
+        cleaned = [p.strip() for p in v if p.strip()]
+        if not cleaned:
+            raise ValueError("Participants cannot consist only of empty strings")
+        return cleaned
+
+    @field_validator('priority')
+    def validate_priority(cls, v):
+        if v not in ('normal', 'important'):
+            raise ValueError("Priority must be 'normal' or 'important'")
+        return v
 
 
 class MeetingCreate(_MeetingBase):
@@ -35,7 +42,6 @@ class MeetingCreate(_MeetingBase):
 
 
 class MeetingUpdate(_MeetingBase):
-    """Same validation rules as MeetingCreate, used for PUT /api/meetings/{id}."""
     pass
 
 
@@ -43,6 +49,9 @@ class MeetingOut(BaseModel):
     id: int
     title: str
     description: Optional[str]
+    goal: Optional[str]
+    result: Optional[str]
+    priority: str
     start_time: str
     end_time: str
     participants: List[str]

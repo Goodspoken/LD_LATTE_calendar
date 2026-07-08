@@ -1,40 +1,44 @@
 // ============================================================
-// State Management
+// State
 // ============================================================
 const state = {
-    apiUrl: localStorage.getItem('calendar_api_url') || 'http://localhost:8000',
-    currentDate: new Date(),        // FIX: was hardcoded to 2026-07-08
-    currentView: 'month',           // 'month' | 'week' | 'agenda'
+    apiUrl: localStorage.getItem('calendar_api_url') || '',
+    currentDate: new Date(),
+    currentView: 'month',       // 'month' | 'compact' | 'week' | 'agenda'
     theme: localStorage.getItem('calendar_theme') || 'dark',
     meetings: [],
     selectedMeeting: null,
-    editingMeeting: null,           // Meeting currently being edited (null = create mode)
-    filterParticipant: ''           // Participant name filter string
+    editingMeeting: null,
+    filterParticipant: '',
+    offlineBannerShown: false
 };
 
-// Russian month names
 const MONTHS_RU = [
-    "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
-    "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
+    "Январь","Февраль","Март","Апрель","Май","Июнь",
+    "Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"
 ];
 
-// DOM elements cache
+// ============================================================
+// DOM Cache
+// ============================================================
 const DOM = {
-    btnNewMeeting:          document.getElementById('btn-new-meeting'),
-    btnPrev:                document.getElementById('btn-prev'),
-    btnNext:                document.getElementById('btn-next'),
-    btnToday:               document.getElementById('btn-today'),
-    currentDateLabel:       document.getElementById('current-date-label'),
-    apiStatus:              document.getElementById('api-status'),
+    btnNewMeeting:      document.getElementById('btn-new-meeting'),
+    btnPrev:            document.getElementById('btn-prev'),
+    btnNext:            document.getElementById('btn-next'),
+    btnToday:           document.getElementById('btn-today'),
+    currentDateLabel:   document.getElementById('current-date-label'),
+    apiStatus:          document.getElementById('api-status'),
 
     // Views
-    monthView:              document.getElementById('month-view'),
-    weekView:               document.getElementById('week-view'),
-    agendaView:             document.getElementById('agenda-view'),
-    navItems:               document.querySelectorAll('.nav-item'),
+    monthView:          document.getElementById('month-view'),
+    compactView:        document.getElementById('compact-view'),
+    weekView:           document.getElementById('week-view'),
+    agendaView:         document.getElementById('agenda-view'),
+    navItems:           document.querySelectorAll('.nav-item'),
 
     // Grids
     monthDaysGrid:          document.getElementById('month-days-grid'),
+    compactWrapper:         document.getElementById('compact-months-wrapper'),
     weekColumnsContainer:   document.getElementById('week-columns-container'),
     agendaList:             document.getElementById('agenda-list'),
 
@@ -47,14 +51,19 @@ const DOM = {
     inputDate:              document.getElementById('input-date'),
     inputStartTime:         document.getElementById('input-start-time'),
     inputEndTime:           document.getElementById('input-end-time'),
+    inputGoal:              document.getElementById('input-goal'),
+    inputResult:            document.getElementById('input-result'),
 
     // Details Modal
     modalDetails:           document.getElementById('modal-details'),
     btnCloseDetails:        document.getElementById('btn-close-details'),
     detailTitle:            document.getElementById('detail-title'),
     detailTime:             document.getElementById('detail-time'),
+    detailPriority:         document.getElementById('detail-priority'),
     detailParticipants:     document.getElementById('detail-participants'),
+    detailGoal:             document.getElementById('detail-goal'),
     detailDescription:      document.getElementById('detail-description'),
+    detailResult:           document.getElementById('detail-result'),
     btnDeleteMeeting:       document.getElementById('btn-delete-meeting'),
     btnEditMeeting:         document.getElementById('btn-edit-meeting'),
     commentsList:           document.getElementById('comments-list'),
@@ -62,33 +71,30 @@ const DOM = {
     commentAuthor:          document.getElementById('comment-author'),
     commentText:            document.getElementById('comment-text'),
 
-    // Settings
+    // Sidebar
     toggleSettings:         document.getElementById('toggle-settings'),
     settingsContent:        document.getElementById('settings-content'),
     apiUrlInput:            document.getElementById('api-url-input'),
     btnSaveSettings:        document.getElementById('btn-save-settings'),
-
-    // Toasts & Stats
     toastContainer:         document.getElementById('toast-container'),
     statMeetingsToday:      document.getElementById('stat-meetings-today'),
     statTotalPeople:        document.getElementById('stat-total-people'),
-
-    // Theme & Filter
     themeBtns:              document.querySelectorAll('.theme-btn'),
     participantFilter:      document.getElementById('participant-filter'),
     btnClearFilter:         document.getElementById('btn-clear-filter'),
+    offlineBannerContainer: document.getElementById('offline-banner-container'),
 };
 
 // ============================================================
-// Initialize Application
+// Init
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
     applyTheme(state.theme);
-    initEventListeners();
     DOM.apiUrlInput.value = state.apiUrl;
+    initEventListeners();
     checkApiStatus();
     render();
-    fetchTodayStats(); // Stats are independent of current calendar view
+    fetchTodayStats();
 });
 
 // ============================================================
@@ -98,37 +104,34 @@ function initEventListeners() {
     // Navigation
     DOM.btnPrev.addEventListener('click', () => navigateDate(-1));
     DOM.btnNext.addEventListener('click', () => navigateDate(1));
-    DOM.btnToday.addEventListener('click', () => {
-        state.currentDate = new Date(); // FIX: was hardcoded date
-        render();
-    });
+    DOM.btnToday.addEventListener('click', () => { state.currentDate = new Date(); render(); });
 
-    // View Switching
+    // View switching
     DOM.navItems.forEach(item => {
         item.addEventListener('click', () => {
-            DOM.navItems.forEach(nav => nav.classList.remove('active'));
+            DOM.navItems.forEach(n => n.classList.remove('active'));
             item.classList.add('active');
             state.currentView = item.dataset.view;
             render();
         });
     });
 
-    // Open Create Modal
+    // Open create modal
     DOM.btnNewMeeting.addEventListener('click', () => openCreateModal());
 
     const closeCreateModal = () => {
         DOM.modalCreate.classList.add('id-hidden');
         DOM.formCreateMeeting.reset();
+        document.getElementById('input-priority-normal').checked = true;
         state.editingMeeting = null;
-        // Reset modal title and button back to create mode
         if (DOM.modalCreateTitle) DOM.modalCreateTitle.innerHTML = '<i class="fa-solid fa-circle-plus"></i> Запланировать встречу';
-        const submitSpan = DOM.formCreateMeeting.querySelector('button[type="submit"] span');
-        if (submitSpan) submitSpan.innerText = 'Забронировать';
+        const span = DOM.formCreateMeeting.querySelector('button[type="submit"] span');
+        if (span) span.innerText = 'Забронировать';
     };
     DOM.btnCloseCreate.addEventListener('click', closeCreateModal);
     DOM.btnCancelCreate.addEventListener('click', closeCreateModal);
 
-    // Form Submit: Create or Edit Meeting
+    // Form: Create or Edit
     DOM.formCreateMeeting.addEventListener('submit', async (e) => {
         e.preventDefault();
 
@@ -138,17 +141,16 @@ function initEventListeners() {
         const endTimeStr   = DOM.inputEndTime.value;
         const participantsRaw = document.getElementById('input-participants').value;
         const description  = document.getElementById('input-description').value.trim();
+        const goal         = DOM.inputGoal.value.trim();
+        const result       = DOM.inputResult.value.trim();
+        const priority     = document.querySelector('input[name="input-priority"]:checked')?.value || 'normal';
 
-        // FIX: Client-side validation — end must be after start (same-day meetings only for simplicity)
         if (endTimeStr <= startTimeStr) {
-            showToast("Ошибка ввода", "Время окончания должно быть позже времени начала", "error");
+            showToast("Ошибка ввода", "Время окончания должно быть позже начала", "error");
             return;
         }
 
-        const participants = participantsRaw.split(',')
-            .map(p => p.trim())
-            .filter(p => p.length > 0);
-
+        const participants = participantsRaw.split(',').map(p => p.trim()).filter(p => p.length > 0);
         if (participants.length === 0) {
             showToast("Ошибка ввода", "Укажите хотя бы одного участника", "error");
             return;
@@ -157,7 +159,7 @@ function initEventListeners() {
         const start_time = `${dateStr}T${startTimeStr}:00`;
         const end_time   = `${dateStr}T${endTimeStr}:00`;
 
-        const submitBtn = DOM.formCreateMeeting.querySelector('button[type="submit"]');
+        const submitBtn  = DOM.formCreateMeeting.querySelector('button[type="submit"]');
         const submitSpan = submitBtn.querySelector('span');
         submitBtn.disabled = true;
         submitSpan.innerText = state.editingMeeting ? "Сохранение..." : "Бронирование...";
@@ -170,32 +172,41 @@ function initEventListeners() {
             const res = await apiFetch(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title, description: description || null, start_time, end_time, participants })
+                body: JSON.stringify({
+                    title,
+                    description: description || null,
+                    goal: goal || null,
+                    result: result || null,
+                    priority,
+                    start_time,
+                    end_time,
+                    participants
+                })
             });
 
             if (res.status === 201 || res.status === 200) {
-                showToast("Успех!", isEdit ? "Встреча успешно обновлена" : "Встреча успешно запланирована", "success");
+                showToast("Успех!", isEdit ? "Встреча обновлена" : "Встреча запланирована", "success");
                 closeCreateModal();
                 await fetchAndRenderMeetings();
                 await fetchTodayStats();
             } else if (res.status === 409) {
-                const errorData = await res.json();
-                showToast("Конфликт бронирования!", errorData.detail.message || "Один из участников уже занят.", "error", errorData.detail.conflicts || []);
+                const err = await res.json();
+                showToast("Конфликт!", err.detail.message || "Участник уже занят", "error", err.detail.conflicts || []);
             } else {
-                const errorData = await res.json();
-                const msg = errorData.detail || "Произошла неизвестная ошибка";
+                const err = await res.json();
+                const msg = err.detail || "Неизвестная ошибка";
                 showToast("Ошибка", typeof msg === 'string' ? msg : JSON.stringify(msg), "error");
             }
         } catch (err) {
             console.error(err);
-            showToast("Ошибка соединения", "Не удалось связаться с сервером бэкенда", "error");
+            showToast("Ошибка соединения", "Не удалось связаться с сервером", "error");
         } finally {
             submitBtn.disabled = false;
             submitSpan.innerText = state.editingMeeting ? "Сохранить" : "Забронировать";
         }
     });
 
-    // Details Modal: Close
+    // Details modal: close
     const closeDetailsModal = () => {
         DOM.modalDetails.classList.add('id-hidden');
         state.selectedMeeting = null;
@@ -203,42 +214,38 @@ function initEventListeners() {
     };
     DOM.btnCloseDetails.addEventListener('click', closeDetailsModal);
 
-    // Details Modal: Edit button — pre-fill create form with existing data
+    // Details modal: edit
     DOM.btnEditMeeting.addEventListener('click', () => {
         if (!state.selectedMeeting) return;
-        const meeting = state.selectedMeeting;
+        const m = state.selectedMeeting;
         closeDetailsModal();
-        openCreateModal(meeting);
+        openCreateModal(m);
     });
 
-    // Details Modal: Delete
+    // Details modal: delete
     DOM.btnDeleteMeeting.addEventListener('click', async () => {
         if (!state.selectedMeeting) return;
-        if (!confirm(`Вы уверены, что хотите отменить встречу "${state.selectedMeeting.title}"?`)) return;
+        if (!confirm(`Отменить встречу "${state.selectedMeeting.title}"?`)) return;
 
         try {
             const res = await apiFetch(`/api/meetings/${state.selectedMeeting.id}`, { method: 'DELETE' });
             if (res.status === 204) {
-                showToast("Отменено", "Встреча успешно удалена", "success");
+                showToast("Удалено", "Встреча отменена", "success");
                 closeDetailsModal();
                 await fetchAndRenderMeetings();
                 await fetchTodayStats();
             } else {
-                showToast("Ошибка удаления", "Не удалось отменить встречу", "error");
+                showToast("Ошибка", "Не удалось удалить", "error");
             }
-        } catch (err) {
-            showToast("Ошибка соединения", "Нет связи с сервером", "error");
-        }
+        } catch { showToast("Ошибка соединения", "Нет связи с сервером", "error"); }
     });
 
-    // Add Comment
+    // Comments
     DOM.formAddComment.addEventListener('submit', async (e) => {
         e.preventDefault();
         if (!state.selectedMeeting) return;
-
         const author = DOM.commentAuthor.value.trim();
         const text   = DOM.commentText.value.trim();
-
         try {
             const res = await apiFetch(`/api/meetings/${state.selectedMeeting.id}/comments`, {
                 method: 'POST',
@@ -251,27 +258,26 @@ function initEventListeners() {
             } else {
                 showToast("Ошибка", "Не удалось отправить комментарий", "error");
             }
-        } catch (err) {
-            showToast("Ошибка соединения", "Нет связи с сервером", "error");
-        }
+        } catch { showToast("Ошибка соединения", "Нет связи с сервером", "error"); }
     });
 
-    // Settings Panel Toggle
+    // Settings
     DOM.toggleSettings.addEventListener('click', () => {
         DOM.toggleSettings.classList.toggle('open');
         DOM.settingsContent.classList.toggle('id-hidden');
     });
-
     DOM.btnSaveSettings.addEventListener('click', () => {
         let val = DOM.apiUrlInput.value.trim().replace(/\/$/, '');
         state.apiUrl = val;
         localStorage.setItem('calendar_api_url', val);
-        showToast("Настройки сохранены", `API: ${val}`, "success");
+        state.offlineBannerShown = false;
+        hideOfflineBanner();
+        showToast("Настройки сохранены", `API: ${val || '(не задан)'}`, "success");
         checkApiStatus();
         fetchAndRenderMeetings();
     });
 
-    // Theme Selector
+    // Theme
     DOM.themeBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             state.theme = btn.dataset.theme;
@@ -280,7 +286,7 @@ function initEventListeners() {
         });
     });
 
-    // Participant Filter
+    // Participant filter
     if (DOM.participantFilter) {
         DOM.participantFilter.addEventListener('input', () => {
             state.filterParticipant = DOM.participantFilter.value.trim().toLowerCase();
@@ -305,19 +311,17 @@ function applyTheme(theme) {
 }
 
 // ============================================================
-// Open Create/Edit Modal
+// Open Create / Edit Modal
 // ============================================================
-function openCreateModal(meetingToEdit = null) {
+function openCreateModal(meetingToEdit = null, prefilledDate = null) {
     state.editingMeeting = meetingToEdit;
 
     if (meetingToEdit) {
         // ── Edit mode ──
-        if (DOM.modalCreateTitle) {
-            DOM.modalCreateTitle.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Изменить встречу';
-        }
+        if (DOM.modalCreateTitle) DOM.modalCreateTitle.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Изменить встречу';
+
         const startDt = new Date(meetingToEdit.start_time);
         const endDt   = new Date(meetingToEdit.end_time);
-
         const yyyy = startDt.getFullYear();
         const mm   = String(startDt.getMonth() + 1).padStart(2, '0');
         const dd   = String(startDt.getDate()).padStart(2, '0');
@@ -328,21 +332,28 @@ function openCreateModal(meetingToEdit = null) {
         DOM.inputEndTime.value   = `${String(endDt.getHours()).padStart(2,'0')}:${String(endDt.getMinutes()).padStart(2,'0')}`;
         document.getElementById('input-participants').value = meetingToEdit.participants.join(', ');
         document.getElementById('input-description').value  = meetingToEdit.description || '';
+        DOM.inputGoal.value   = meetingToEdit.goal || '';
+        DOM.inputResult.value = meetingToEdit.result || '';
 
-        const submitSpan = DOM.formCreateMeeting.querySelector('button[type="submit"] span');
-        if (submitSpan) submitSpan.innerText = 'Сохранить';
+        const priority = meetingToEdit.priority || 'normal';
+        const radio = document.getElementById(`input-priority-${priority}`);
+        if (radio) radio.checked = true;
+
+        const span = DOM.formCreateMeeting.querySelector('button[type="submit"] span');
+        if (span) span.innerText = 'Сохранить';
+
     } else {
         // ── Create mode ──
-        if (DOM.modalCreateTitle) {
-            DOM.modalCreateTitle.innerHTML = '<i class="fa-solid fa-circle-plus"></i> Запланировать встречу';
-        }
-        const now = state.currentDate;
-        DOM.inputDate.value      = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+        if (DOM.modalCreateTitle) DOM.modalCreateTitle.innerHTML = '<i class="fa-solid fa-circle-plus"></i> Запланировать встречу';
+
+        const targetDate = prefilledDate || state.currentDate;
+        DOM.inputDate.value      = `${targetDate.getFullYear()}-${String(targetDate.getMonth()+1).padStart(2,'0')}-${String(targetDate.getDate()).padStart(2,'0')}`;
         DOM.inputStartTime.value = "10:00";
         DOM.inputEndTime.value   = "11:00";
+        document.getElementById('input-priority-normal').checked = true;
 
-        const submitSpan = DOM.formCreateMeeting.querySelector('button[type="submit"] span');
-        if (submitSpan) submitSpan.innerText = 'Забронировать';
+        const span = DOM.formCreateMeeting.querySelector('button[type="submit"] span');
+        if (span) span.innerText = 'Забронировать';
     }
 
     DOM.modalCreate.classList.remove('id-hidden');
@@ -352,11 +363,12 @@ function openCreateModal(meetingToEdit = null) {
 // API Helper
 // ============================================================
 async function apiFetch(path, options = {}) {
-    return fetch(`${state.apiUrl}${path}`, options);
+    const base = state.apiUrl || 'http://localhost:8000';
+    return fetch(`${base}${path}`, options);
 }
 
 // ============================================================
-// API Status
+// API Status + Offline Banner
 // ============================================================
 async function checkApiStatus() {
     DOM.apiStatus.className = "api-status-badge offline";
@@ -366,50 +378,78 @@ async function checkApiStatus() {
         if (res.ok) {
             DOM.apiStatus.className = "api-status-badge online";
             DOM.apiStatus.querySelector('.status-text').innerText = "Онлайн";
+            hideOfflineBanner();
         } else {
             throw new Error();
         }
     } catch {
         DOM.apiStatus.className = "api-status-badge offline";
         DOM.apiStatus.querySelector('.status-text').innerText = "Офлайн";
+        showOfflineBanner();
     }
+}
+
+function showOfflineBanner() {
+    if (state.offlineBannerShown) return;
+    state.offlineBannerShown = true;
+
+    const banner = document.createElement('div');
+    banner.id = 'offline-banner';
+    banner.className = 'offline-banner';
+    banner.innerHTML = `
+        <div class="offline-banner-content">
+            <i class="fa-solid fa-plug-circle-xmark"></i>
+            <div>
+                <strong>Бэкенд недоступен.</strong>
+                <span>Введите URL вашего сервера в разделе <strong>Настройки API</strong> в нижней части боковой панели.</span>
+            </div>
+        </div>
+        <button class="offline-banner-close" onclick="hideOfflineBanner()"><i class="fa-solid fa-xmark"></i></button>
+    `;
+    DOM.offlineBannerContainer.appendChild(banner);
+}
+
+function hideOfflineBanner() {
+    const banner = document.getElementById('offline-banner');
+    if (banner) banner.remove();
+    state.offlineBannerShown = false;
 }
 
 // ============================================================
 // Date Navigation
 // ============================================================
-function navigateDate(direction) {
-    if (state.currentView === 'month') {
-        state.currentDate.setMonth(state.currentDate.getMonth() + direction);
+function navigateDate(dir) {
+    if (state.currentView === 'month' || state.currentView === 'compact') {
+        state.currentDate.setMonth(state.currentDate.getMonth() + dir);
     } else if (state.currentView === 'week') {
-        state.currentDate.setDate(state.currentDate.getDate() + direction * 7);
+        state.currentDate.setDate(state.currentDate.getDate() + dir * 7);
     } else {
-        state.currentDate.setDate(state.currentDate.getDate() + direction);
+        state.currentDate.setDate(state.currentDate.getDate() + dir);
     }
     render();
 }
 
 // ============================================================
-// Primary Render Router
+// Render Router
 // ============================================================
 async function render() {
     updateHeaderLabel();
 
-    DOM.monthView.classList.add('id-hidden');
-    DOM.weekView.classList.add('id-hidden');
-    DOM.agendaView.classList.add('id-hidden');
+    [DOM.monthView, DOM.compactView, DOM.weekView, DOM.agendaView].forEach(v => v.classList.add('id-hidden'));
 
-    if (state.currentView === 'month')       DOM.monthView.classList.remove('id-hidden');
-    else if (state.currentView === 'week')   DOM.weekView.classList.remove('id-hidden');
-    else if (state.currentView === 'agenda') DOM.agendaView.classList.remove('id-hidden');
+    if      (state.currentView === 'month')   DOM.monthView.classList.remove('id-hidden');
+    else if (state.currentView === 'compact') DOM.compactView.classList.remove('id-hidden');
+    else if (state.currentView === 'week')    DOM.weekView.classList.remove('id-hidden');
+    else if (state.currentView === 'agenda')  DOM.agendaView.classList.remove('id-hidden');
 
     await fetchAndRenderMeetings();
 }
 
 function renderCurrentView() {
-    if (state.currentView === 'month')       renderMonthView();
-    else if (state.currentView === 'week')   renderWeekView();
-    else if (state.currentView === 'agenda') renderAgendaView();
+    if      (state.currentView === 'month')   renderMonthView();
+    else if (state.currentView === 'compact') renderCompactView();
+    else if (state.currentView === 'week')    renderWeekView();
+    else if (state.currentView === 'agenda')  renderAgendaView();
 }
 
 // ============================================================
@@ -417,20 +457,15 @@ function renderCurrentView() {
 // ============================================================
 function updateHeaderLabel() {
     const year = state.currentDate.getFullYear();
-    if (state.currentView === 'month') {
+    if (state.currentView === 'month' || state.currentView === 'compact') {
         DOM.currentDateLabel.innerText = `${MONTHS_RU[state.currentDate.getMonth()]} ${year}`;
     } else if (state.currentView === 'week') {
-        const weekdays = getWeekDays(state.currentDate);
-        const start = weekdays[0], end = weekdays[6];
-        let startStr = `${start.getDate()} ${MONTHS_RU[start.getMonth()].substring(0,3).toLowerCase()}`;
-        let endStr   = `${end.getDate()} ${MONTHS_RU[end.getMonth()].substring(0,3).toLowerCase()}`;
-        if (start.getFullYear() !== end.getFullYear()) {
-            startStr += ` ${start.getFullYear()}`;
-            endStr   += ` ${end.getFullYear()}`;
-        } else if (start.getMonth() === end.getMonth()) {
-            startStr = String(start.getDate());
-        }
-        DOM.currentDateLabel.innerText = `${startStr} — ${endStr} ${year}`;
+        const wd = getWeekDays(state.currentDate);
+        const s = wd[0], e = wd[6];
+        let sStr = `${s.getDate()} ${MONTHS_RU[s.getMonth()].substring(0,3).toLowerCase()}`;
+        let eStr = `${e.getDate()} ${MONTHS_RU[e.getMonth()].substring(0,3).toLowerCase()}`;
+        if (s.getMonth() === e.getMonth()) sStr = String(s.getDate());
+        DOM.currentDateLabel.innerText = `${sStr} — ${eStr} ${year}`;
     } else {
         DOM.currentDateLabel.innerText = state.currentDate.toLocaleDateString('ru-RU', {
             day: 'numeric', month: 'long', year: 'numeric'
@@ -439,19 +474,24 @@ function updateHeaderLabel() {
 }
 
 // ============================================================
-// Fetch Meetings (view-range scoped)
+// Fetch Meetings
 // ============================================================
 async function fetchAndRenderMeetings() {
     let startStr = '', endStr = '';
 
     if (state.currentView === 'month') {
-        const year = state.currentDate.getFullYear(), month = state.currentDate.getMonth();
-        startStr = new Date(year, month, -7).toISOString().split('T')[0] + "T00:00:00";
-        endStr   = new Date(year, month + 1, 14).toISOString().split('T')[0] + "T23:59:59";
+        const y = state.currentDate.getFullYear(), m = state.currentDate.getMonth();
+        startStr = new Date(y, m, -7).toISOString().split('T')[0] + "T00:00:00";
+        endStr   = new Date(y, m + 1, 14).toISOString().split('T')[0] + "T23:59:59";
+    } else if (state.currentView === 'compact') {
+        // Fetch prev + current + next month for compact 3-month view
+        const y = state.currentDate.getFullYear(), m = state.currentDate.getMonth();
+        startStr = new Date(y, m - 1, 1).toISOString().split('T')[0] + "T00:00:00";
+        endStr   = new Date(y, m + 2, 0).toISOString().split('T')[0] + "T23:59:59";
     } else if (state.currentView === 'week') {
-        const weekdays = getWeekDays(state.currentDate);
-        startStr = weekdays[0].toISOString().split('T')[0] + "T00:00:00";
-        endStr   = weekdays[6].toISOString().split('T')[0] + "T23:59:59";
+        const wd = getWeekDays(state.currentDate);
+        startStr = wd[0].toISOString().split('T')[0] + "T00:00:00";
+        endStr   = wd[6].toISOString().split('T')[0] + "T23:59:59";
     } else {
         const end = new Date(state.currentDate);
         end.setDate(end.getDate() + 30);
@@ -460,38 +500,36 @@ async function fetchAndRenderMeetings() {
     }
 
     try {
-        const res = await apiFetch(`/api/meetings?start=${startStr}&end=${endStr}`);
-        if (res.ok) state.meetings = await res.json();
-    } catch (e) {
-        console.error("Failed to load meetings", e);
-        state.meetings = [];
-    }
+        if (!state.apiUrl && !localStorage.getItem('calendar_api_url')) {
+            state.meetings = [];
+        } else {
+            const res = await apiFetch(`/api/meetings?start=${startStr}&end=${endStr}`);
+            if (res.ok) state.meetings = await res.json();
+        }
+    } catch { state.meetings = []; }
 
     renderCurrentView();
 }
 
 // ============================================================
-// FIX: Stats fetched independently for REAL today — not based on current view
+// Today Stats (always real today, independent of view)
 // ============================================================
 async function fetchTodayStats() {
-    const today    = new Date(); // Real today
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = new Date().toISOString().split('T')[0];
     try {
         const res = await apiFetch(`/api/meetings?start=${todayStr}T00:00:00&end=${todayStr}T23:59:59`);
         if (res.ok) {
-            const todayMeetings = await res.json();
-            DOM.statMeetingsToday.innerText = todayMeetings.length;
-            const participants = new Set();
-            todayMeetings.forEach(m => m.participants.forEach(p => participants.add(p.toLowerCase())));
-            DOM.statTotalPeople.innerText = participants.size;
+            const list = await res.json();
+            DOM.statMeetingsToday.innerText = list.length;
+            const ppl = new Set();
+            list.forEach(m => m.participants.forEach(p => ppl.add(p.toLowerCase())));
+            DOM.statTotalPeople.innerText = ppl.size;
         }
-    } catch {
-        // Fail silently — stats remain as last value
-    }
+    } catch { /* silent */ }
 }
 
 // ============================================================
-// Participant Filter
+// Filter
 // ============================================================
 function getFilteredMeetings() {
     if (!state.filterParticipant) return state.meetings;
@@ -505,17 +543,15 @@ function getFilteredMeetings() {
 // ============================================================
 function renderMonthView() {
     DOM.monthDaysGrid.innerHTML = '';
-    const days = getMonthDays(state.currentDate);
+    const days     = getMonthDays(state.currentDate);
     const filtered = getFilteredMeetings();
-    const systemToday = new Date(); // FIX: Real today
+    const today    = new Date();
 
     days.forEach(dayInfo => {
-        const dayDiv = document.createElement('div');
-        dayDiv.className = 'calendar-day';
-        if (!dayInfo.isCurrentMonth) {
-            dayDiv.classList.add(dayInfo.date.getMonth() < state.currentDate.getMonth() ? 'prev-month' : 'next-month');
-        }
-        if (isSameDay(dayInfo.date, systemToday)) dayDiv.classList.add('today');
+        const cell = document.createElement('div');
+        cell.className = 'calendar-day';
+        if (!dayInfo.isCurrentMonth) cell.classList.add(dayInfo.date.getMonth() < state.currentDate.getMonth() ? 'prev-month' : 'next-month');
+        if (isSameDay(dayInfo.date, today)) cell.classList.add('today');
 
         const header = document.createElement('div');
         header.className = 'day-header';
@@ -523,7 +559,7 @@ function renderMonthView() {
         numSpan.className = 'day-number';
         numSpan.innerText = dayInfo.date.getDate();
         header.appendChild(numSpan);
-        dayDiv.appendChild(header);
+        cell.appendChild(header);
 
         const eventsContainer = document.createElement('div');
         eventsContainer.className = 'day-events';
@@ -533,26 +569,97 @@ function renderMonthView() {
             .sort((a, b) => a.start_time.localeCompare(b.start_time))
             .forEach(meeting => {
                 const pill = document.createElement('div');
-                pill.className = 'event-pill';
+                pill.className = `event-pill priority-${meeting.priority || 'normal'}`;
                 const timeStr = new Date(meeting.start_time).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-                // FIX: textContent prevents XSS from meeting titles
                 pill.textContent = `${timeStr} ${meeting.title}`;
                 pill.title = `${meeting.title}\nУчастники: ${meeting.participants.join(', ')}`;
                 pill.addEventListener('click', e => { e.stopPropagation(); openDetailsModal(meeting); });
                 eventsContainer.appendChild(pill);
             });
 
-        dayDiv.appendChild(eventsContainer);
+        cell.appendChild(eventsContainer);
 
-        dayDiv.addEventListener('click', () => {
-            const yyyy = dayInfo.date.getFullYear();
-            const mm   = String(dayInfo.date.getMonth() + 1).padStart(2, '0');
-            const dd   = String(dayInfo.date.getDate()).padStart(2, '0');
-            DOM.inputDate.value = `${yyyy}-${mm}-${dd}`;
-            openCreateModal();
+        // Click on day → open create modal with that date
+        cell.addEventListener('click', () => {
+            openCreateModal(null, dayInfo.date);
         });
 
-        DOM.monthDaysGrid.appendChild(dayDiv);
+        DOM.monthDaysGrid.appendChild(cell);
+    });
+}
+
+// ============================================================
+// Compact 3-Month View
+// ============================================================
+function renderCompactView() {
+    DOM.compactWrapper.innerHTML = '';
+    const today    = new Date();
+    const filtered = getFilteredMeetings();
+
+    [-1, 0, 1].forEach(offset => {
+        const monthDate = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth() + offset, 1);
+
+        const miniMonth = document.createElement('div');
+        miniMonth.className = 'mini-month';
+
+        // Header
+        const header = document.createElement('div');
+        header.className = 'mini-month-header';
+        header.textContent = `${MONTHS_RU[monthDate.getMonth()]} ${monthDate.getFullYear()}`;
+        miniMonth.appendChild(header);
+
+        // Weekday labels
+        const wdRow = document.createElement('div');
+        wdRow.className = 'mini-weekdays';
+        ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].forEach(d => {
+            const span = document.createElement('div');
+            span.textContent = d;
+            wdRow.appendChild(span);
+        });
+        miniMonth.appendChild(wdRow);
+
+        // Days grid
+        const grid = document.createElement('div');
+        grid.className = 'mini-days-grid';
+
+        getMonthDays(monthDate).forEach(dayInfo => {
+            const cell = document.createElement('div');
+            cell.className = 'mini-day';
+            if (!dayInfo.isCurrentMonth) cell.classList.add('mini-day-outside');
+            if (isSameDay(dayInfo.date, today)) cell.classList.add('mini-day-today');
+
+            const numSpan = document.createElement('span');
+            numSpan.textContent = dayInfo.date.getDate();
+            cell.appendChild(numSpan);
+
+            const dayMeetings = filtered.filter(m => isSameDay(new Date(m.start_time), dayInfo.date));
+            if (dayMeetings.length > 0) {
+                const dotsDiv = document.createElement('div');
+                dotsDiv.className = 'mini-day-dots';
+                dayMeetings.slice(0, 3).forEach(m => {
+                    const dot = document.createElement('span');
+                    dot.className = `mini-dot ${m.priority === 'important' ? 'important' : 'normal'}`;
+                    dotsDiv.appendChild(dot);
+                });
+                cell.appendChild(dotsDiv);
+            }
+
+            // Click: go to that month in full view
+            if (dayInfo.isCurrentMonth) {
+                cell.addEventListener('click', () => {
+                    state.currentDate = new Date(dayInfo.date);
+                    state.currentView = 'month';
+                    DOM.navItems.forEach(n => n.classList.remove('active'));
+                    document.querySelector('[data-view="month"]').classList.add('active');
+                    render();
+                });
+            }
+
+            grid.appendChild(cell);
+        });
+
+        miniMonth.appendChild(grid);
+        DOM.compactWrapper.appendChild(miniMonth);
     });
 }
 
@@ -562,68 +669,75 @@ function renderMonthView() {
 function renderWeekView() {
     DOM.weekColumnsContainer.innerHTML = '';
     const weekdays = getWeekDays(state.currentDate);
-    const systemToday = new Date(); // FIX: Real today
+    const today    = new Date();
     const filtered = getFilteredMeetings();
 
     const headers = DOM.weekView.querySelectorAll('.weekday-header');
     weekdays.forEach((day, i) => {
         headers[i].querySelector('.date-num').innerText = day.getDate();
-        headers[i].style.color = isSameDay(day, systemToday) ? 'var(--primary)' : '';
+        headers[i].style.color = isSameDay(day, today) ? 'var(--primary)' : '';
     });
 
     weekdays.forEach(day => {
-        const column = document.createElement('div');
-        column.className = 'week-column';
-        if (isSameDay(day, systemToday)) column.classList.add('today');
+        const col = document.createElement('div');
+        col.className = 'week-column';
+        if (isSameDay(day, today)) col.classList.add('today');
 
         const dayMeetings = filtered
             .filter(m => isSameDay(new Date(m.start_time), day))
             .sort((a, b) => a.start_time.localeCompare(b.start_time));
 
         if (dayMeetings.length === 0) {
-            column.innerHTML = '<div style="margin:auto;color:var(--text-muted);font-size:11px;text-align:center;">Нет встреч</div>';
+            const empty = document.createElement('div');
+            empty.style.cssText = 'margin:auto;color:var(--text-muted);font-size:11px;text-align:center;padding:12px 0';
+            empty.textContent = 'Нет встреч';
+            col.appendChild(empty);
         } else {
             dayMeetings.forEach(meeting => {
                 const card = document.createElement('div');
-                card.className = 'event-card';
+                card.className = `event-card priority-${meeting.priority || 'normal'}`;
 
-                const tStart = new Date(meeting.start_time).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-                const tEnd   = new Date(meeting.end_time).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+                const tS = new Date(meeting.start_time).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+                const tE = new Date(meeting.end_time).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
-                // FIX: Build via DOM, not innerHTML, to prevent XSS from user-supplied meeting titles
                 const titleEl = document.createElement('div');
                 titleEl.className = 'event-card-title';
-                titleEl.textContent = meeting.title; // XSS-safe
+                titleEl.textContent = meeting.title;
 
                 const timeEl = document.createElement('div');
                 timeEl.className = 'event-card-time';
-                timeEl.innerHTML = `<i class="fa-regular fa-clock"></i> `;
-                timeEl.appendChild(document.createTextNode(`${tStart} - ${tEnd}`));
+                timeEl.innerHTML = '<i class="fa-regular fa-clock"></i> ';
+                timeEl.appendChild(document.createTextNode(`${tS} - ${tE}`));
 
-                const participantsEl = document.createElement('div');
-                participantsEl.className = 'event-card-participants';
+                const pEl = document.createElement('div');
+                pEl.className = 'event-card-participants';
                 meeting.participants.slice(0, 3).forEach(p => {
                     const tag = document.createElement('span');
                     tag.className = 'p-tag';
-                    tag.textContent = p; // XSS-safe
-                    participantsEl.appendChild(tag);
+                    tag.textContent = p;
+                    pEl.appendChild(tag);
                 });
                 if (meeting.participants.length > 3) {
                     const tag = document.createElement('span');
                     tag.className = 'p-tag';
                     tag.textContent = `+${meeting.participants.length - 3}`;
-                    participantsEl.appendChild(tag);
+                    pEl.appendChild(tag);
                 }
 
                 card.appendChild(titleEl);
                 card.appendChild(timeEl);
-                card.appendChild(participantsEl);
+                card.appendChild(pEl);
                 card.addEventListener('click', () => openDetailsModal(meeting));
-                column.appendChild(card);
+                col.appendChild(card);
             });
         }
 
-        DOM.weekColumnsContainer.appendChild(column);
+        // Click on empty column area → open create modal with that day's date
+        col.addEventListener('click', (e) => {
+            if (e.target === col) openCreateModal(null, day);
+        });
+
+        DOM.weekColumnsContainer.appendChild(col);
     });
 }
 
@@ -635,52 +749,48 @@ function renderAgendaView() {
     const filtered = getFilteredMeetings();
 
     if (filtered.length === 0) {
-        const placeholder = document.createElement('div');
-        placeholder.className = 'no-meetings-placeholder';
-        placeholder.innerHTML = '<i class="fa-regular fa-calendar-xmark"></i>';
+        const ph = document.createElement('div');
+        ph.className = 'no-meetings-placeholder';
+        ph.innerHTML = '<i class="fa-regular fa-calendar-xmark"></i>';
         const p = document.createElement('p');
-        // FIX: textContent for user-supplied filter string to prevent XSS
         p.textContent = state.filterParticipant
             ? `Нет встреч с участием «${state.filterParticipant}»`
             : 'Нет запланированных встреч на ближайшие 30 дней.';
-        placeholder.appendChild(p);
-        DOM.agendaList.appendChild(placeholder);
+        ph.appendChild(p);
+        DOM.agendaList.appendChild(ph);
         return;
     }
 
     const groups = {};
-    filtered.forEach(meeting => {
-        const key = new Date(meeting.start_time).toDateString();
-        if (!groups[key]) groups[key] = { date: new Date(meeting.start_time), items: [] };
-        groups[key].items.push(meeting);
+    filtered.forEach(m => {
+        const key = new Date(m.start_time).toDateString();
+        if (!groups[key]) groups[key] = { date: new Date(m.start_time), items: [] };
+        groups[key].items.push(m);
     });
 
     Object.keys(groups).sort((a, b) => new Date(a) - new Date(b)).forEach(key => {
-        const group = groups[key];
-        const groupDiv = document.createElement('div');
-        groupDiv.className = 'agenda-day-group';
+        const g = groups[key];
+        const gDiv = document.createElement('div');
+        gDiv.className = 'agenda-day-group';
 
         const divider = document.createElement('div');
         divider.className = 'agenda-date-divider';
-        divider.innerText = group.date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
-        groupDiv.appendChild(divider);
+        divider.innerText = g.date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+        gDiv.appendChild(divider);
 
-        group.items.sort((a, b) => a.start_time.localeCompare(b.start_time));
-
-        group.items.forEach(meeting => {
-            const tStart = new Date(meeting.start_time).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-            const tEnd   = new Date(meeting.end_time).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        g.items.sort((a, b) => a.start_time.localeCompare(b.start_time)).forEach(meeting => {
+            const tS = new Date(meeting.start_time).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            const tE = new Date(meeting.end_time).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
             const item = document.createElement('div');
-            item.className = 'agenda-item';
+            item.className = `agenda-item priority-${meeting.priority || 'normal'}`;
 
-            // FIX: Build via DOM to avoid XSS from meeting titles / participant names
-            const leftDiv = document.createElement('div');
-            leftDiv.className = 'agenda-item-left';
+            const left = document.createElement('div');
+            left.className = 'agenda-item-left';
 
             const titleEl = document.createElement('div');
             titleEl.className = 'agenda-item-title';
-            titleEl.textContent = meeting.title; // XSS-safe
+            titleEl.textContent = meeting.title;
 
             const metaEl = document.createElement('div');
             metaEl.className = 'agenda-item-meta';
@@ -689,23 +799,29 @@ function renderAgendaView() {
             pSpan.appendChild(document.createTextNode(meeting.participants.join(', ')));
             metaEl.appendChild(pSpan);
 
-            leftDiv.appendChild(titleEl);
-            leftDiv.appendChild(metaEl);
+            left.appendChild(titleEl);
+            left.appendChild(metaEl);
 
-            const rightDiv = document.createElement('div');
-            rightDiv.className = 'agenda-item-right';
+            const right = document.createElement('div');
+            right.className = 'agenda-item-right';
             const timeEl = document.createElement('div');
             timeEl.className = 'agenda-item-time';
-            timeEl.textContent = `${tStart} — ${tEnd}`;
-            rightDiv.appendChild(timeEl);
+            timeEl.textContent = `${tS} — ${tE}`;
+            right.appendChild(timeEl);
 
-            item.appendChild(leftDiv);
-            item.appendChild(rightDiv);
+            // Priority badge
+            const badge = document.createElement('span');
+            badge.className = `priority-badge ${meeting.priority || 'normal'}`;
+            badge.innerHTML = `<span class="priority-dot ${meeting.priority || 'normal'}"></span> ${meeting.priority === 'important' ? 'Очень важно' : 'Плановая'}`;
+            right.appendChild(badge);
+
+            item.appendChild(left);
+            item.appendChild(right);
             item.addEventListener('click', () => openDetailsModal(meeting));
-            groupDiv.appendChild(item);
+            gDiv.appendChild(item);
         });
 
-        DOM.agendaList.appendChild(groupDiv);
+        DOM.agendaList.appendChild(gDiv);
     });
 }
 
@@ -715,37 +831,56 @@ function renderAgendaView() {
 async function openDetailsModal(meeting) {
     state.selectedMeeting = meeting;
 
-    // FIX: Use textContent for title to prevent XSS
     DOM.detailTitle.textContent = meeting.title;
 
     const startObj  = new Date(meeting.start_time);
     const endObj    = new Date(meeting.end_time);
     const dateLabel = startObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-    const tStart    = startObj.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-    const tEnd      = endObj.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    const tS = startObj.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    const tE = endObj.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
-    DOM.detailTime.innerHTML = `<i class="fa-regular fa-clock"></i> `;
-    DOM.detailTime.appendChild(document.createTextNode(`${dateLabel}, ${tStart} — ${tEnd}`));
+    DOM.detailTime.innerHTML = '<i class="fa-regular fa-clock"></i> ';
+    DOM.detailTime.appendChild(document.createTextNode(`${dateLabel}, ${tS} — ${tE}`));
 
-    DOM.detailDescription.textContent = meeting.description || "Описание отсутствует"; // XSS-safe
+    // Priority badge
+    const p = meeting.priority || 'normal';
+    DOM.detailPriority.innerHTML = '';
+    const badge = document.createElement('span');
+    badge.className = `priority-badge ${p}`;
+    badge.innerHTML = `<span class="priority-dot ${p}"></span> ${p === 'important' ? '🔴 Очень важно' : '🔵 Плановая'}`;
+    DOM.detailPriority.appendChild(badge);
 
+    // Participants
     DOM.detailParticipants.innerHTML = '';
-    meeting.participants.forEach(p => {
+    meeting.participants.forEach(part => {
         const chip = document.createElement('span');
         chip.className = 'chip-participant';
         chip.innerHTML = '<i class="fa-solid fa-user-tag"></i> ';
-        chip.appendChild(document.createTextNode(p)); // XSS-safe
+        chip.appendChild(document.createTextNode(part));
         DOM.detailParticipants.appendChild(chip);
     });
 
-    DOM.commentsList.innerHTML = '<div class="no-comments">Загрузка комментариев...</div>';
+    // Goal
+    DOM.detailGoal.textContent = meeting.goal || '';
+    DOM.detailGoal.className = `goal-result-text ${meeting.goal ? '' : 'empty'}`;
+    if (!meeting.goal) DOM.detailGoal.textContent = 'Цель не указана';
+
+    // Description
+    DOM.detailDescription.textContent = meeting.description || 'Описание отсутствует';
+
+    // Result
+    DOM.detailResult.textContent = meeting.result || '';
+    DOM.detailResult.className = `goal-result-text ${meeting.result ? '' : 'empty'}`;
+    if (!meeting.result) DOM.detailResult.textContent = 'Результат ещё не заполнен';
+
+    DOM.commentsList.innerHTML = '<div class="no-comments">Загрузка...</div>';
     DOM.modalDetails.classList.remove('id-hidden');
 
     await loadComments(meeting.id);
 }
 
 // ============================================================
-// Comments (fully XSS-safe via DOM manipulation)
+// Comments — XSS-safe via DOM API
 // ============================================================
 async function loadComments(meetingId) {
     try {
@@ -761,152 +896,124 @@ async function loadComments(meetingId) {
         }
 
         comments.forEach(c => {
-            const commentDiv = document.createElement('div');
-            commentDiv.className = 'comment-item';
+            const div = document.createElement('div');
+            div.className = 'comment-item';
 
-            const timeStr = new Date(c.created_at).toLocaleString('ru-RU', {
-                day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
-            });
+            // Author avatar color based on name hash
+            const hue = Math.abs(c.author.split('').reduce((a, ch) => a + ch.charCodeAt(0), 0)) % 360;
 
             const metaDiv = document.createElement('div');
             metaDiv.className = 'comment-meta';
 
             const authorSpan = document.createElement('span');
             authorSpan.className = 'comment-author';
-            authorSpan.textContent = c.author; // FIX: textContent — XSS-safe
+            authorSpan.style.color = `hsl(${hue}, 65%, 65%)`;
+            authorSpan.textContent = c.author;
 
             const timeSpan = document.createElement('span');
             timeSpan.className = 'comment-time';
-            timeSpan.textContent = timeStr;
+            timeSpan.textContent = new Date(c.created_at).toLocaleString('ru-RU', {
+                day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+            });
 
             metaDiv.appendChild(authorSpan);
             metaDiv.appendChild(timeSpan);
 
             const textDiv = document.createElement('div');
             textDiv.className = 'comment-text';
-            textDiv.textContent = c.text; // FIX: textContent — XSS-safe
+            textDiv.textContent = c.text;
 
-            commentDiv.appendChild(metaDiv);
-            commentDiv.appendChild(textDiv);
-            DOM.commentsList.appendChild(commentDiv);
+            div.appendChild(metaDiv);
+            div.appendChild(textDiv);
+            DOM.commentsList.appendChild(div);
         });
 
         DOM.commentsList.scrollTop = DOM.commentsList.scrollHeight;
     } catch {
-        DOM.commentsList.innerHTML = '<div class="no-comments" style="color:var(--danger);">Не удалось загрузить комментарии.</div>';
+        DOM.commentsList.innerHTML = '<div class="no-comments" style="color:var(--danger);">Ошибка загрузки.</div>';
     }
 }
 
 // ============================================================
-// Toast Notifications
+// Toasts
 // ============================================================
 function showToast(title, message, type = 'success', conflicts = []) {
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
+    const icon = type === 'error' ? 'fa-triangle-exclamation' : 'fa-circle-check';
 
-    const iconClass = type === 'error' ? 'fa-triangle-exclamation' : 'fa-circle-check';
-
-    // Build conflict list safely
     let conflictsHtml = '';
-    if (conflicts && conflicts.length > 0) {
-        conflictsHtml = `<div style="margin-top:8px;">
-            ${conflicts.map(c => `
-                <div class="conflict-item">
-                    <strong>${escapeHtml(c.participant)}</strong> занят(а) в "${escapeHtml(c.conflicting_meeting.title)}"
-                    (${escapeHtml(new Date(c.conflicting_meeting.start_time).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}))}
-                    - ${escapeHtml(new Date(c.conflicting_meeting.end_time).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}))})
-                </div>`).join('')}
-        </div>`;
+    if (conflicts?.length > 0) {
+        conflictsHtml = `<div style="margin-top:8px;">${conflicts.map(c => `
+            <div class="conflict-item">
+                <strong>${escapeHtml(c.participant)}</strong> занят(а) в "${escapeHtml(c.conflicting_meeting.title)}"
+                (${escapeHtml(new Date(c.conflicting_meeting.start_time).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}))}
+                – ${escapeHtml(new Date(c.conflicting_meeting.end_time).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}))})
+            </div>`).join('')}</div>`;
     }
 
     toast.innerHTML = `
-        <div class="toast-icon"><i class="fa-solid ${iconClass}"></i></div>
+        <div class="toast-icon"><i class="fa-solid ${icon}"></i></div>
         <div class="toast-content">
             <div class="toast-title">${escapeHtml(title)}</div>
             <div class="toast-message">${escapeHtml(message)}</div>
             ${conflictsHtml}
         </div>
-        <button class="toast-close"><i class="fa-solid fa-xmark"></i></button>
-    `;
+        <button class="toast-close"><i class="fa-solid fa-xmark"></i></button>`;
 
     toast.querySelector('.toast-close').addEventListener('click', () => {
         toast.style.opacity = '0';
-        toast.style.transform = 'translateX(50px)';
         setTimeout(() => toast.remove(), 200);
     });
 
     DOM.toastContainer.appendChild(toast);
-
-    const timeout = type === 'success' ? 4000 : 8000;
     setTimeout(() => {
         if (toast.parentNode) {
             toast.style.opacity = '0';
-            toast.style.transform = 'translateX(50px)';
             setTimeout(() => toast.remove(), 200);
         }
-    }, timeout);
+    }, type === 'success' ? 4000 : 8000);
 }
 
 // ============================================================
-// Utility Helpers
+// Helpers
 // ============================================================
-
-/** Compare two Date objects by calendar day (ignores time). */
 function isSameDay(d1, d2) {
     return d1.getFullYear() === d2.getFullYear() &&
            d1.getMonth()    === d2.getMonth()    &&
            d1.getDate()     === d2.getDate();
 }
 
-/** Returns array of 7 Date objects for the week containing `date` (Mon–Sun). */
 function getWeekDays(date) {
-    const temp = new Date(date);
-    const day  = temp.getDay();
-    const diff = temp.getDate() - day + (day === 0 ? -6 : 1);
-    const startOfWeek = new Date(temp.setDate(diff));
-
+    const t = new Date(date);
+    const day = t.getDay();
+    const diff = t.getDate() - day + (day === 0 ? -6 : 1);
+    const start = new Date(t.setDate(diff));
     return Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(startOfWeek);
-        d.setDate(startOfWeek.getDate() + i);
-        return d;
+        const d = new Date(start); d.setDate(start.getDate() + i); return d;
     });
 }
 
-/** Returns array of day objects {date, isCurrentMonth} for a month grid (35 or 42 cells). */
 function getMonthDays(date) {
-    const year = date.getFullYear(), month = date.getMonth();
-
-    const firstDayIndex   = new Date(year, month, 1).getDay();
-    const startOffset     = firstDayIndex === 0 ? 6 : firstDayIndex - 1;
-    const lastDate        = new Date(year, month + 1, 0).getDate();
-    const prevMonthLast   = new Date(year, month, 0).getDate();
-
+    const y = date.getFullYear(), m = date.getMonth();
+    const firstDay   = new Date(y, m, 1).getDay();
+    const offset     = firstDay === 0 ? 6 : firstDay - 1;
+    const lastDate   = new Date(y, m + 1, 0).getDate();
+    const prevLast   = new Date(y, m, 0).getDate();
     const days = [];
 
-    for (let i = startOffset - 1; i >= 0; i--) {
-        days.push({ date: new Date(year, month - 1, prevMonthLast - i), isCurrentMonth: false });
-    }
-    for (let i = 1; i <= lastDate; i++) {
-        days.push({ date: new Date(year, month, i), isCurrentMonth: true });
-    }
-    const totalCells = days.length > 35 ? 42 : 35;
-    for (let i = 1; i <= totalCells - days.length; i++) {
-        days.push({ date: new Date(year, month + 1, i), isCurrentMonth: false });
-    }
+    for (let i = offset - 1; i >= 0; i--) days.push({ date: new Date(y, m - 1, prevLast - i), isCurrentMonth: false });
+    for (let i = 1; i <= lastDate; i++)   days.push({ date: new Date(y, m, i), isCurrentMonth: true });
+
+    const total = days.length > 35 ? 42 : 35;
+    for (let i = 1; i <= total - days.length; i++) days.push({ date: new Date(y, m + 1, i), isCurrentMonth: false });
 
     return days;
 }
 
-/**
- * Escape HTML special characters to prevent XSS when inserting into innerHTML.
- * Always prefer textContent where possible; use this only for mixed HTML+data contexts.
- */
 function escapeHtml(str) {
     if (str === null || str === undefined) return '';
     return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }

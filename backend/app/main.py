@@ -130,6 +130,9 @@ def schedule_meeting(meeting: schemas.MeetingCreate):
         return database.create_meeting(
             title=meeting.title,
             description=meeting.description,
+            goal=meeting.goal,
+            result=meeting.result,
+            priority=meeting.priority,
             start_time=meeting.start_time,
             end_time=meeting.end_time,
             participants=meeting.participants
@@ -175,6 +178,9 @@ def update_meeting(meeting_id: int, meeting: schemas.MeetingUpdate):
             meeting_id=meeting_id,
             title=meeting.title,
             description=meeting.description,
+            goal=meeting.goal,
+            result=meeting.result,
+            priority=meeting.priority,
             start_time=meeting.start_time,
             end_time=meeting.end_time,
             participants=meeting.participants
