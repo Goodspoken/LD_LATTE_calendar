@@ -83,6 +83,7 @@ const DOM = {
     participantFilter:      document.getElementById('participant-filter'),
     btnClearFilter:         document.getElementById('btn-clear-filter'),
     offlineBannerContainer: document.getElementById('offline-banner-container'),
+    sidebarUpcomingList:    document.getElementById('sidebar-upcoming-list'),
 };
 
 // ============================================================
@@ -518,15 +519,12 @@ async function fetchAndRenderMeetings() {
     }
 
     try {
-        if (!state.apiUrl && !localStorage.getItem('calendar_api_url')) {
-            state.meetings = [];
-        } else {
-            const res = await apiFetch(`/api/meetings?start=${startStr}&end=${endStr}`);
-            if (res.ok) state.meetings = await res.json();
-        }
+        const res = await apiFetch(`/api/meetings?start=${startStr}&end=${endStr}`);
+        if (res.ok) state.meetings = await res.json();
     } catch { state.meetings = []; }
 
     renderCurrentView();
+    renderSidebarUpcomingList();
 }
 
 // ============================================================
@@ -589,7 +587,8 @@ function renderMonthView() {
                 const pill = document.createElement('div');
                 pill.className = `event-pill priority-${meeting.priority || 'normal'}`;
                 const timeStr = new Date(meeting.start_time).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-                pill.textContent = `${timeStr} ${meeting.title}`;
+                const priorityPrefix = meeting.priority === 'important' ? '⚠️ ' : '';
+                pill.textContent = `${priorityPrefix}${timeStr} ${meeting.title}`;
                 pill.title = `${meeting.title}\nУчастники: ${meeting.participants.join(', ')}`;
                 pill.addEventListener('click', e => { e.stopPropagation(); openDetailsModal(meeting); });
                 eventsContainer.appendChild(pill);
@@ -720,7 +719,8 @@ function renderWeekView() {
 
                 const titleEl = document.createElement('div');
                 titleEl.className = 'event-card-title';
-                titleEl.textContent = meeting.title;
+                const priorityPrefix = meeting.priority === 'important' ? '⚠️ ' : '';
+                titleEl.textContent = `${priorityPrefix}${meeting.title}`;
 
                 const timeEl = document.createElement('div');
                 timeEl.className = 'event-card-time';
@@ -808,7 +808,8 @@ function renderAgendaView() {
 
             const titleEl = document.createElement('div');
             titleEl.className = 'agenda-item-title';
-            titleEl.textContent = meeting.title;
+            const priorityPrefix = meeting.priority === 'important' ? '⚠️ ' : '';
+            titleEl.textContent = `${priorityPrefix}${meeting.title}`;
 
             const metaEl = document.createElement('div');
             metaEl.className = 'agenda-item-meta';
@@ -1034,4 +1035,52 @@ function escapeHtml(str) {
     return String(str)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;')
         .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+// ============================================================
+// Render Sidebar Upcoming Meetings
+// ============================================================
+function renderSidebarUpcomingList() {
+    if (!DOM.sidebarUpcomingList) return;
+    DOM.sidebarUpcomingList.innerHTML = '';
+
+    const filtered = getFilteredMeetings();
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // Filter upcoming meetings (today onwards)
+    const upcoming = filtered
+        .filter(m => new Date(m.start_time) >= startOfToday)
+        .sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+    if (upcoming.length === 0) {
+        DOM.sidebarUpcomingList.innerHTML = '<div style="color:var(--text-muted); font-size:11px; text-align:center; padding:12px 0;">Нет предстоящих встреч</div>';
+        return;
+    }
+
+    upcoming.slice(0, 10).forEach(meeting => {
+        const item = document.createElement('div');
+        item.className = `event-pill priority-${meeting.priority || 'normal'}`;
+        item.style.cssText = 'white-space: normal; padding: 6px 10px; cursor: pointer; display: flex; flex-direction: column; gap: 2px;';
+
+        const titleDiv = document.createElement('div');
+        titleDiv.style.cssText = 'font-weight: 600; font-size: 11px; word-break: break-word;';
+        titleDiv.textContent = (meeting.priority === 'important' ? '⚠️ ' : '') + meeting.title;
+
+        const startDt = new Date(meeting.start_time);
+        const endDt   = new Date(meeting.end_time);
+        const dayLabel = startDt.getDate() + ' ' + MONTHS_RU[startDt.getMonth()].substring(0,3).toLowerCase();
+        const tS = startDt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        const tE = endDt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+
+        const timeDiv = document.createElement('div');
+        timeDiv.style.cssText = 'font-size: 9px; opacity: 0.8;';
+        timeDiv.textContent = `${dayLabel}, ${tS} - ${tE}`;
+
+        item.appendChild(titleDiv);
+        item.appendChild(timeDiv);
+
+        item.addEventListener('click', () => openDetailsModal(meeting));
+        DOM.sidebarUpcomingList.appendChild(item);
+    });
 }
