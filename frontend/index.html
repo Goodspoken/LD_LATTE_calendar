@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Встречи Компании — ИИ-Календарь</title>
+    <!-- Google Fonts for premium typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Controls -->
+        <aside class="sidebar">
+            <div class="logo-area">
+                <div class="logo-icon"><i class="fa-solid fa-calendar-check"></i></div>
+                <div class="logo-text">
+                    <h1>LD Latte</h1>
+                    <span>Календарь Встреч</span>
+                </div>
+            </div>
+
+            <button class="btn btn-primary btn-block" id="btn-new-meeting">
+                <i class="fa-solid fa-plus"></i> Новая встреча
+            </button>
+
+            <nav class="view-selector">
+                <h3>Режим просмотра</h3>
+                <button class="nav-item active" data-view="month">
+                    <i class="fa-regular fa-calendar-days"></i> Месяц
+                </button>
+                <button class="nav-item" data-view="week">
+                    <i class="fa-solid fa-calendar-week"></i> Неделя
+                </button>
+                <button class="nav-item" data-view="agenda">
+                    <i class="fa-solid fa-list-ul"></i> Повестка дня
+                </button>
+            </nav>
+
+            <div class="theme-selector">
+                <h3>Тема оформления</h3>
+                <div class="theme-grid">
+                    <button class="theme-btn active" data-theme="dark" title="Тёмная космическая">
+                        <i class="fa-solid fa-moon"></i>
+                    </button>
+                    <button class="theme-btn" data-theme="light" title="Светлая классическая">
+                        <i class="fa-solid fa-sun"></i>
+                    </button>
+                    <button class="theme-btn theme-wb" data-theme="wildberries" title="Стиль Wildberries">
+                        <i class="fa-solid fa-shirt"></i>
+                    </button>
+                    <button class="theme-btn theme-ozon" data-theme="ozon" title="Стиль Ozon">
+                        <i class="fa-solid fa-cart-shopping"></i>
+                    </button>
+                </div>
+            </div>
+
+
+            <div class="stats-card">
+                <h3>Аналитика дня</h3>
+                <div class="stat-item">
+                    <span class="stat-label">Встреч сегодня</span>
+                    <span class="stat-value" id="stat-meetings-today">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Всего участников</span>
+                    <span class="stat-value" id="stat-total-people">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Статус API</span>
+                    <span class="api-status-badge offline" id="api-status">
+                        <span class="status-dot"></span> <span class="status-text">Проверка...</span>
+                    </span>
+                </div>
+            </div>
+
+            <div class="settings-card">
+                <div class="settings-header" id="toggle-settings">
+                    <span><i class="fa-solid fa-gear"></i> Настройки API</span>
+                    <i class="fa-solid fa-chevron-down arrow"></i>
+                </div>
+                <div class="settings-content id-hidden" id="settings-content">
+                    <label for="api-url-input">URL бэкенда:</label>
+                    <input type="text" id="api-url-input" value="http://localhost:8000" placeholder="http://127.0.0.1:8000">
+                    <button class="btn btn-secondary btn-sm" id="btn-save-settings">Применить</button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Calendar Area -->
+        <main class="main-content">
+            <header class="calendar-header">
+                <div class="date-navigation">
+                    <button class="btn btn-icon" id="btn-prev"><i class="fa-solid fa-chevron-left"></i></button>
+                    <h2 class="current-date-label" id="current-date-label">Июль 2026</h2>
+                    <button class="btn btn-icon" id="btn-next"><i class="fa-solid fa-chevron-right"></i></button>
+                    <button class="btn btn-secondary" id="btn-today">Сегодня</button>
+                </div>
+                <div class="user-profile">
+                    <div class="avatar"><i class="fa-regular fa-user"></i></div>
+                    <div class="profile-info">
+                        <span class="profile-name">Панель сотрудника</span>
+                        <span class="profile-role">Гость</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Month View Container -->
+            <div class="calendar-view" id="month-view">
+                <div class="weekdays-grid">
+                    <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div>Вс</div>
+                </div>
+                <div class="days-grid" id="month-days-grid">
+                    <!-- Javascript will render days here -->
+                </div>
+            </div>
+
+            <!-- Week View Container -->
+            <div class="calendar-view id-hidden" id="week-view">
+                <div class="weekdays-grid-7col">
+                    <div class="weekday-header">Пн <span class="date-num">-</span></div>
+                    <div class="weekday-header">Вт <span class="date-num">-</span></div>
+                    <div class="weekday-header">Ср <span class="date-num">-</span></div>
+                    <div class="weekday-header">Чт <span class="date-num">-</span></div>
+                    <div class="weekday-header">Пт <span class="date-num">-</span></div>
+                    <div class="weekday-header">Сб <span class="date-num">-</span></div>
+                    <div class="weekday-header">Вс <span class="date-num">-</span></div>
+                </div>
+                <div class="week-columns" id="week-columns-container">
+                    <!-- Javascript will render week columns here -->
+                </div>
+            </div>
+
+            <!-- Agenda View Container -->
+            <div class="calendar-view id-hidden" id="agenda-view">
+                <div class="agenda-container" id="agenda-list">
+                    <!-- Javascript will list upcoming meetings here -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal: Create Meeting -->
+    <div class="modal-overlay id-hidden" id="modal-create">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-circle-plus"></i> Запланировать встречу</h2>
+                <button class="modal-close" id="btn-close-create"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="form-create-meeting">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="input-title">Тема встречи <span class="required">*</span></label>
+                        <input type="text" id="input-title" required placeholder="Например: Обсуждение эскизов новой коллекции">
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="input-date">Дата встречи <span class="required">*</span></label>
+                            <input type="date" id="input-date" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="input-start-time">Начало <span class="required">*</span></label>
+                            <input type="time" id="input-start-time" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="input-end-time">Окончание <span class="required">*</span></label>
+                            <input type="time" id="input-end-time" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="input-participants">Участники (через запятую) <span class="required">*</span></label>
+                        <input type="text" id="input-participants" required placeholder="Иван, Мария, Анна">
+                        <small class="form-help">Имена сотрудников, которые встречаются. Система не даст забронировать время, если кто-то из них занят.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="input-description">Описание встречи</label>
+                        <textarea id="input-description" rows="3" placeholder="Краткое содержание, повестка встречи или ссылки на материалы..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="btn-cancel-create">Отмена</button>
+                    <button type="submit" class="btn btn-primary" id="btn-submit-meeting">
+                        <span>Забронировать</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Meeting Details & Comments -->
+    <div class="modal-overlay id-hidden" id="modal-details">
+        <div class="modal-card modal-card-large">
+            <div class="modal-header">
+                <h2 id="detail-title">Тема встречи</h2>
+                <button class="modal-close" id="btn-close-details"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body modal-body-split">
+                <!-- Left Column: Details -->
+                <div class="details-left">
+                    <div class="info-block">
+                        <span class="info-label"><i class="fa-regular fa-clock"></i> Время проведения</span>
+                        <div class="info-value" id="detail-time">09 июля 2026, 10:00 - 11:00</div>
+                    </div>
+
+                    <div class="info-block">
+                        <span class="info-label"><i class="fa-regular fa-circle-user"></i> Участники</span>
+                        <div class="participants-chips" id="detail-participants">
+                            <!-- Render chips here -->
+                        </div>
+                    </div>
+
+                    <div class="info-block">
+                        <span class="info-label"><i class="fa-regular fa-file-lines"></i> Описание</span>
+                        <div class="detail-description-box" id="detail-description">Описание отсутствует</div>
+                    </div>
+
+                    <div class="danger-zone">
+                        <button class="btn btn-danger btn-sm" id="btn-delete-meeting">
+                            <i class="fa-solid fa-trash-can"></i> Отменить встречу
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Right Column: Comments -->
+                <div class="details-right">
+                    <h3><i class="fa-regular fa-comments"></i> Обсуждение встречи</h3>
+                    
+                    <div class="comments-list" id="comments-list">
+                        <!-- Comments will be rendered here dynamically -->
+                        <div class="no-comments">Комментариев пока нет. Напишите первый!</div>
+                    </div>
+
+                    <form id="form-add-comment" class="comment-form">
+                        <div class="form-row-compact">
+                            <input type="text" id="comment-author" placeholder="Имя" required class="input-author">
+                            <input type="text" id="comment-text" placeholder="Ваш комментарий..." required class="input-text">
+                            <button type="submit" class="btn btn-primary btn-icon-only"><i class="fa-solid fa-paper-plane"></i></button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div class="toast-container" id="toast-container"></div>
+</body>
+</html>
