@@ -1211,7 +1211,7 @@ function renderUsersList() {
         return;
     }
 
-    const limit = 5;
+    const limit = 3;
     const toShow = usersListExpanded ? state.users : state.users.slice(0, limit);
     
     toShow.forEach(u => {

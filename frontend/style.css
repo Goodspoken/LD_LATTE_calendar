@@ -144,6 +144,8 @@ h1, h2, h3 {
     gap: 24px;
     flex-shrink: 0;
     z-index: 10;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .logo-area {
@@ -1645,4 +1647,42 @@ body[data-theme="ozon"] {
 .btn-delete-user:hover {
     opacity: 1;
     background: rgba(255, 23, 68, 0.1);
+}
+
+/* Spoilers */
+.spoiler-block {
+    margin-bottom: 16px;
+}
+.spoiler-block[open] .spoiler-icon {
+    transform: rotate(180deg);
+}
+.spoiler-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    margin-bottom: 8px;
+}
+.spoiler-header::-webkit-details-marker {
+    display: none;
+}
+.spoiler-header h3 {
+    margin: 0;
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 1.5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.spoiler-icon {
+    font-size: 10px;
+    color: var(--text-muted);
+    transition: transform 0.2s ease;
+}
+.spoiler-content {
+    margin-top: 8px;
 }

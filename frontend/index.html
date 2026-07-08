@@ -28,21 +28,23 @@
             <i class="fa-solid fa-plus"></i> Новая встреча
         </button>
 
-        <nav class="view-selector">
-            <h3>Режим просмотра</h3>
-            <button class="nav-item active" data-view="month">
-                <i class="fa-regular fa-calendar-days"></i> Месяц
-            </button>
-            <button class="nav-item" data-view="compact">
-                <i class="fa-solid fa-table-cells-small"></i> 3 месяца
-            </button>
-            <button class="nav-item" data-view="week">
-                <i class="fa-solid fa-calendar-week"></i> Неделя
-            </button>
-            <button class="nav-item" data-view="agenda">
-                <i class="fa-solid fa-list-ul"></i> Повестка дня
-            </button>
-        </nav>
+        <details class="spoiler-block" open>
+            <summary class="spoiler-header"><h3><i class="fa-solid fa-eye"></i> Режим просмотра</h3><i class="fa-solid fa-chevron-down spoiler-icon"></i></summary>
+            <nav class="view-selector spoiler-content">
+                <button class="nav-item active" data-view="month">
+                    <i class="fa-regular fa-calendar-days"></i> Месяц
+                </button>
+                <button class="nav-item" data-view="compact">
+                    <i class="fa-solid fa-table-cells-small"></i> 3 месяца
+                </button>
+                <button class="nav-item" data-view="week">
+                    <i class="fa-solid fa-calendar-week"></i> Неделя
+                </button>
+                <button class="nav-item" data-view="agenda">
+                    <i class="fa-solid fa-list-ul"></i> Повестка дня
+                </button>
+            </nav>
+        </details>
 
         <div class="theme-selector">
             <h3>Тема оформления</h3>
@@ -63,49 +65,53 @@
         </div>
 
         <!-- Users & Filter -->
-        <div class="stats-card">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <span style="font-size: 11px; color: var(--text-muted);" id="registered-users-count">Зарегистрировано: 0</span>
-                <button class="btn btn-primary btn-sm" id="btn-add-user" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-user-plus"></i> Добавить</button>
-            </div>
-            
-            <h3><i class="fa-solid fa-magnifying-glass"></i> Фильтр по участнику</h3>
-            <input type="text" id="participant-filter" placeholder="Имя участника..." style="width:100%;box-sizing:border-box;margin-bottom:6px;">
-            <button class="btn btn-secondary btn-sm" id="btn-clear-filter" style="width:100%; margin-bottom:10px;">Сбросить фильтр</button>
+        <details class="stats-card spoiler-block" open>
+            <summary class="spoiler-header"><h3><i class="fa-solid fa-users"></i> Пользователи</h3><i class="fa-solid fa-chevron-down spoiler-icon"></i></summary>
+            <div class="spoiler-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <span style="font-size: 11px; color: var(--text-muted);" id="registered-users-count">Зарегистрировано: 0</span>
+                    <button class="btn btn-primary btn-sm" id="btn-add-user" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-user-plus"></i> Добавить</button>
+                </div>
+                
+                <input type="text" id="participant-filter" placeholder="Имя участника..." style="width:100%;box-sizing:border-box;margin-bottom:6px;">
+                <button class="btn btn-secondary btn-sm" id="btn-clear-filter" style="width:100%; margin-bottom:10px;">Сбросить фильтр</button>
 
-            <!-- Users List Widget -->
-            <div id="users-list-widget" style="display: flex; flex-direction: column; gap: 4px; margin-top: 5px;">
-                <!-- Users will be injected here -->
+                <!-- Users List Widget -->
+                <div id="users-list-widget" style="display: flex; flex-direction: column; gap: 4px; margin-top: 5px;">
+                    <!-- Users will be injected here -->
+                </div>
+                <button class="btn btn-secondary btn-sm id-hidden" id="btn-toggle-users" style="width:100%; margin-top:6px; font-size:10px;">Показать всех</button>
             </div>
-            <button class="btn btn-secondary btn-sm id-hidden" id="btn-toggle-users" style="width:100%; margin-top:6px; font-size:10px;">Показать всех</button>
-        </div>
+        </details>
 
         <!-- Stats -->
-        <div class="stats-card">
-            <h3>Аналитика дня</h3>
-            <div class="stat-item">
-                <span class="stat-label">Встреч сегодня</span>
-                <span class="stat-value" id="stat-meetings-today">0</span>
+        <details class="stats-card spoiler-block" open>
+            <summary class="spoiler-header"><h3><i class="fa-solid fa-chart-line"></i> Аналитика дня</h3><i class="fa-solid fa-chevron-down spoiler-icon"></i></summary>
+            <div class="spoiler-content">
+                <div class="stat-item">
+                    <span class="stat-label">Встреч сегодня</span>
+                    <span class="stat-value" id="stat-meetings-today">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Участников сегодня</span>
+                    <span class="stat-value" id="stat-total-people">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Статус API</span>
+                    <span class="api-status-badge offline" id="api-status">
+                        <span class="status-dot"></span> <span class="status-text">Проверка...</span>
+                    </span>
+                </div>
             </div>
-            <div class="stat-item">
-                <span class="stat-label">Участников сегодня</span>
-                <span class="stat-value" id="stat-total-people">0</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">Статус API</span>
-                <span class="api-status-badge offline" id="api-status">
-                    <span class="status-dot"></span> <span class="status-text">Проверка...</span>
-                </span>
-            </div>
-        </div>
+        </details>
 
         <!-- Upcoming Meetings List -->
-        <div class="stats-card" id="upcoming-meetings-card" style="margin-top: 10px;">
-            <h3><i class="fa-solid fa-list-check"></i> Предстоящие встречи</h3>
-            <div id="sidebar-upcoming-list" style="display:flex; flex-direction:column; gap:6px; max-height: 220px; overflow-y: auto; padding-right: 4px;">
+        <details class="stats-card spoiler-block" id="upcoming-meetings-card" open style="margin-top: 10px;">
+            <summary class="spoiler-header"><h3><i class="fa-solid fa-list-check"></i> Предстоящие встречи</h3><i class="fa-solid fa-chevron-down spoiler-icon"></i></summary>
+            <div class="spoiler-content" id="sidebar-upcoming-list" style="display:flex; flex-direction:column; gap:6px; max-height: 220px; overflow-y: auto; padding-right: 4px;">
                 <div style="color:var(--text-muted); font-size:11px; text-align:center; padding:12px 0;">Загрузка...</div>
             </div>
-        </div>
+        </details>
 
         <!-- API Settings -->
         <div class="settings-card">
@@ -201,11 +207,11 @@
                     </div>
                     <div class="form-group">
                         <label for="input-start-time">Начало <span class="required">*</span></label>
-                        <input type="time" id="input-start-time" step="300" required>
+                        <input type="time" id="input-start-time" step="900" required>
                     </div>
                     <div class="form-group">
                         <label for="input-end-time">Конец <span class="required">*</span></label>
-                        <input type="time" id="input-end-time" step="300" required>
+                        <input type="time" id="input-end-time" step="900" required>
                     </div>
                 </div>
 
