@@ -1,11 +1,13 @@
 // ============================================================
+// Config
+// ============================================================
+const API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:8000'
+    : 'https://calendar-api.claytablet.online';
+
+// ============================================================
 // State
 // ============================================================
-const oldSavedUrl = localStorage.getItem('calendar_api_url');
-if (oldSavedUrl === 'http://192.168.1.2:8507') {
-    localStorage.removeItem('calendar_api_url');
-}
-
 const state = {
     currentDate: new Date(),
     viewMode: 'month', // 'month' | 'week' | 'agenda'
@@ -13,7 +15,6 @@ const state = {
     users: [],
     selectedParticipants: [], // Tags
     theme: localStorage.getItem('calendar_theme') || 'default',
-    apiUrl: localStorage.getItem('calendar_api_url') || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : 'https://calendar-api.claytablet.online'),
     editingMeetingId: null,
     filterParticipant: '',
     offlineBannerShown: false
@@ -84,10 +85,6 @@ const DOM = {
     attachmentUploadStatus: document.getElementById('attachment-upload-status'),
 
     // Sidebar
-    toggleSettings:         document.getElementById('toggle-settings'),
-    settingsContent:        document.getElementById('settings-content'),
-    apiUrlInput:            document.getElementById('api-url-input'),
-    btnSaveSettings:        document.getElementById('btn-save-settings'),
     toastContainer:         document.getElementById('toast-container'),
     statMeetingsToday:      document.getElementById('stat-meetings-today'),
     statTotalPeople:        document.getElementById('stat-total-people'),
@@ -118,7 +115,6 @@ const DOM = {
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
     applyTheme(state.theme);
-    DOM.apiUrlInput.value = state.apiUrl;
     initEventListeners();
     initTagsInput();
     checkApiStatus();
@@ -276,7 +272,7 @@ function initEventListeners() {
         formData.append('file', file);
         
         try {
-            const base = state.apiUrl || (window.location.hostname.includes('github.io') || window.location.protocol.startsWith('file') ? 'https://calendar-api.claytablet.online' : window.location.origin);
+            const base = API_URL;
             const res = await fetch(`${base}/api/meetings/${state.selectedMeeting.id}/attachments`, {
                 method: 'POST',
                 body: formData
@@ -336,21 +332,7 @@ function initEventListeners() {
         } catch { showToast("Ошибка соединения", "Нет связи с сервером", "error"); }
     });
 
-    // Settings
-    DOM.toggleSettings.addEventListener('click', () => {
-        DOM.toggleSettings.classList.toggle('open');
-        DOM.settingsContent.classList.toggle('id-hidden');
-    });
-    DOM.btnSaveSettings.addEventListener('click', () => {
-        let val = DOM.apiUrlInput.value.trim().replace(/\/$/, '');
-        state.apiUrl = val;
-        localStorage.setItem('calendar_api_url', val);
-        state.offlineBannerShown = false;
-        hideOfflineBanner();
-        showToast("Настройки сохранены", `API: ${val || '(не задан)'}`, "success");
-        checkApiStatus();
-        fetchAndRenderMeetings();
-    });
+
 
     // Theme
     DOM.themeBtns.forEach(btn => {
@@ -440,17 +422,7 @@ function openCreateModal(meetingToEdit = null, prefilledDate = null) {
 // API Helper
 // ============================================================
 async function apiFetch(path, options = {}) {
-    let base = state.apiUrl;
-    if (!base) {
-        if (window.location.hostname.includes('github.io')) {
-            base = 'https://calendar-api.claytablet.online';
-        } else if (window.location.protocol.startsWith('file')) {
-            base = 'https://calendar-api.claytablet.online';
-        } else {
-            base = window.location.origin;
-        }
-    }
-    return fetch(`${base}${path}`, options);
+    return fetch(`${API_URL}${path}`, options);
 }
 
 // ============================================================
@@ -480,7 +452,7 @@ function showOfflineBanner() {
     state.offlineBannerShown = true;
 
     let extraWarning = "";
-    if (window.location.protocol === "https:" && (!state.apiUrl || state.apiUrl.startsWith("http:"))) {
+    if (window.location.protocol === "https:" && API_URL.startsWith("http:")) {
         extraWarning = `<div style="font-size: 11px; margin-top: 4px; color: rgba(255, 145, 0, 0.85);">
             ⚠️ Вы открыли сайт через безопасный HTTPS (GitHub Pages). Браузеры блокируют HTTP-запросы к localhost или незащищенным IP-серверам (Mixed Content). 
             Рекомендуется запустить проект локально (открыв файл <code>frontend/index.html</code> напрямую) или настроить HTTPS/SSL для вашего бэкенд-сервера.
@@ -984,7 +956,7 @@ function renderAttachmentsList(attachments) {
         DOM.detailAttachmentsList.innerHTML = '<li style="color:var(--text-muted);"><i class="fa-solid fa-ban" style="font-size:10px;"></i> Нет вложений</li>';
         return;
     }
-    const base = state.apiUrl || (window.location.hostname.includes('github.io') || window.location.protocol.startsWith('file') ? 'https://calendar-api.claytablet.online' : window.location.origin);
+    const base = API_URL;
     
     attachments.forEach(att => {
         const li = document.createElement('li');
