@@ -11,6 +11,7 @@ const API_URL = (window.location.hostname === 'localhost' || window.location.hos
 const state = {
     currentDate: new Date(),
     viewMode: 'month', // 'month' | 'week' | 'agenda'
+    currentView: 'month',
     meetings: [],
     users: [],
     selectedParticipants: [], // Tags
