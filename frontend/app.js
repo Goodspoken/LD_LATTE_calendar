@@ -1,6 +1,11 @@
 // ============================================================
 // State
 // ============================================================
+const oldSavedUrl = localStorage.getItem('calendar_api_url');
+if (oldSavedUrl === 'http://192.168.1.2:8507') {
+    localStorage.removeItem('calendar_api_url');
+}
+
 const state = {
     currentDate: new Date(),
     viewMode: 'month', // 'month' | 'week' | 'agenda'
@@ -8,7 +13,7 @@ const state = {
     users: [],
     selectedParticipants: [], // Tags
     theme: localStorage.getItem('calendar_theme') || 'default',
-    apiUrl: localStorage.getItem('calendar_api_url') || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : 'http://192.168.1.2:8507'),
+    apiUrl: localStorage.getItem('calendar_api_url') || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : 'https://calendar-api.claytablet.online'),
     editingMeetingId: null,
     filterParticipant: '',
     offlineBannerShown: false
@@ -271,7 +276,7 @@ function initEventListeners() {
         formData.append('file', file);
         
         try {
-            const base = state.apiUrl || (window.location.hostname.includes('github.io') || window.location.protocol.startsWith('file') ? 'http://192.168.1.2:8507' : window.location.origin);
+            const base = state.apiUrl || (window.location.hostname.includes('github.io') || window.location.protocol.startsWith('file') ? 'https://calendar-api.claytablet.online' : window.location.origin);
             const res = await fetch(`${base}/api/meetings/${state.selectedMeeting.id}/attachments`, {
                 method: 'POST',
                 body: formData
@@ -438,9 +443,9 @@ async function apiFetch(path, options = {}) {
     let base = state.apiUrl;
     if (!base) {
         if (window.location.hostname.includes('github.io')) {
-            base = 'http://192.168.1.2:8507';
+            base = 'https://calendar-api.claytablet.online';
         } else if (window.location.protocol.startsWith('file')) {
-            base = 'http://192.168.1.2:8507';
+            base = 'https://calendar-api.claytablet.online';
         } else {
             base = window.location.origin;
         }
@@ -979,7 +984,7 @@ function renderAttachmentsList(attachments) {
         DOM.detailAttachmentsList.innerHTML = '<li style="color:var(--text-muted);"><i class="fa-solid fa-ban" style="font-size:10px;"></i> Нет вложений</li>';
         return;
     }
-    const base = state.apiUrl || (window.location.hostname.includes('github.io') || window.location.protocol.startsWith('file') ? 'http://192.168.1.2:8507' : window.location.origin);
+    const base = state.apiUrl || (window.location.hostname.includes('github.io') || window.location.protocol.startsWith('file') ? 'https://calendar-api.claytablet.online' : window.location.origin);
     
     attachments.forEach(att => {
         const li = document.createElement('li');
